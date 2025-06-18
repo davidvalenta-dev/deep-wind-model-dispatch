@@ -49,7 +49,7 @@ request = {
         "100m_u_component_of_wind",
         "100m_v_component_of_wind"
     ],
-    "area": [32.65, -100.8, 32.5, -100.55]
+    "area": [32.75, -100.80, 32.5, -100.55]
 }
 
 client = cdsapi.Client()

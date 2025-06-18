@@ -1,3 +1,6 @@
 cdsapi
 ipykernel
-pygrib
+pandas
+xarray
+numpy
+openpyxl

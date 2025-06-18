@@ -4,3 +4,4 @@ pandas
 xarray
 numpy
 openpyxl
+matplotlib

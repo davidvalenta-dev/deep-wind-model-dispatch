@@ -1,0 +1,23 @@
+## DATA PARAMETERS
+seq_length: 168        # 168 = 24 * 7    (each sequence spans 1 week)
+rated_capacity: 249   # in MW
+price_threshold: 200
+
+## MODEL HYPERPARAMETERS
+hidden_size: 16
+num_hidden: 3
+fc_hidden_sizes: [16, 8]
+
+## TRAINING PARAMETERS
+learning_rate: 0.001
+batch_size: 5
+epochs: 16
+
+# Early stopping
+early_stop_epoch: 5
+patience: 3
+
+# Train-validation-test split
+train_percent: 0.7
+val_percent: 0.2
+test_percent: 0.1

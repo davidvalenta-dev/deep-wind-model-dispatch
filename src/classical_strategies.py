@@ -22,6 +22,7 @@ def base_load(power):
 
 def base_load_modified(power, price):
     g_avg = np.mean(power)
+    print(g_avg)
     p_avg = np.mean(price)
     stored = 0
     released = np.zeros(shape=(len(power)))

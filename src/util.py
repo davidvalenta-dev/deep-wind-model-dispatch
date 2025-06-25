@@ -10,7 +10,9 @@ from torch.utils.data import Dataset, DataLoader
 
 ## UTILS FOR VF CALCULATION
 
-# These two are useful for visualization purposes, the batchwise variants are useful for training
+# These are useful for visualization purposes, the batchwise variants are useful for training
+def lcoe(power, price, range=()):
+    return 1 / revenue(power, price, range)
 def revenue(power, price, range=()):
     if(len(power) != len(price)):
         print('Warning: price and power have different lengths')
@@ -130,12 +132,14 @@ def load_dataset(csv_path, config):
     return train_dataloader, val_dataloader, test_dataloader
 
 # Returns config, model, and dataset (without split) for use with model evaluation
-def load_experiment(model_path, config_path, dataset_path):
+def load_experiment(folder_name, dataset_path):
+    dir = f'../test/{folder_name}'
+    config_path = f'{dir}/config_{folder_name}.yaml'
+    model_path = f'{dir}/model_{folder_name}.pth'
     config = load_config(config_path)
     model = load_model(model_path, config_path)
     dataset = load_dataset_no_split(dataset_path, config)
-
-    return config, model, dataset
+    return model, dataset, config
 
 def plot_losses(train_losses, val_losses, fname):
     epochs = np.arange(1, len(train_losses) + 1)
@@ -151,18 +155,3 @@ def plot_losses(train_losses, val_losses, fname):
 
     # Saving the plot as an image file in 'plots' directory
     plt.savefig(fname + ".png")
-
-def plot_strategy(model, dataset):
-    power = dataset[:,0].detach().cpu().numpy().squeeze()
-    price = dataset[:,1].detach().cpu().numpy().squeeze()
-
-    percent_release = model(dataset.unsqueeze(0)).detach().cpu().numpy().squeeze()
-    released = power * percent_release
-
-    x = np.arange(0, len(dataset))
-
-    plt.plot(x, power, 'r', label='Power Generated')
-    plt.plot(x, released, 'b', label='Power Released')
-    plt.plot(x, percent_release, '-g', label='Percent Released')
-    plt.legend()
-    plt.show()

@@ -11,8 +11,9 @@ from torch.utils.data import Dataset, DataLoader
 ## UTILS FOR VF CALCULATION
 
 # These are useful for visualization purposes, the batchwise variants are useful for training
-def lcoe(power, price, range=()):
+def cove(power, price, range=()):
     return 1 / revenue(power, price, range)
+
 def revenue(power, price, range=()):
     if(len(power) != len(price)):
         print('Warning: price and power have different lengths')
@@ -142,6 +143,10 @@ def load_experiment(folder_name, dataset_path):
     return model, dataset, config
 
 def plot_losses(train_losses, val_losses, fname):
+    # Drop first train epoch, usually ~100x greater than others
+    train_losses = train_losses[1:]
+    val_losses = val_losses[1:]
+
     epochs = np.arange(1, len(train_losses) + 1)
     plt.close('all')
 

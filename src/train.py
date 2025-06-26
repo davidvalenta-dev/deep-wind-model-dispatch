@@ -11,11 +11,10 @@ def train(model, train_dataloader, val_dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = VFLoss(config['baseload_degree'], 
                        config['baseload_factor'], 
-                       config['peaker_degree'], 
-                       config['peaker_factor'],
-                       config['epsilon'],
-                       config['eta'],
-                       config['gamma'])
+                       config['storage_degree'], 
+                       config['storage_factor'],
+                       config['storage_threshold'],
+                       config['epsilon'])
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     early_stopper = EarlyStopper(config['patience'], config['early_stop_epoch'])
     
@@ -49,7 +48,7 @@ def train(model, train_dataloader, val_dataloader, config):
             epoch_train_loss.append(loss.detach().cpu().numpy())
             if i % 10 == 0:
                 print(f'Batch {i} loss: {loss.detach().cpu().numpy()}')
-                print(f'Batch {i} final storage: {stored[:, -1].detach().cpu().numpy()}')
+                # print(f'Batch {i} final storage: {stored[:, -1].detach().cpu().numpy()}')
 
             loss.backward()
             optimizer.step()
@@ -81,32 +80,22 @@ def validate(model, dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = VFLoss(config['baseload_degree'], 
                        config['baseload_factor'], 
-                       config['peaker_degree'], 
-                       config['peaker_factor'],
-                       config['epsilon'],
-                       config['eta'],
-                       config['gamma'])
+                       config['storage_degree'], 
+                       config['storage_factor'],
+                       config['storage_threshold'],
+                       config['epsilon'])
     val_loss = []
     releases = []
-    for t in range(config['epochs']):
-        epoch_train_loss = []
-        epoch_avg_release = []
-        for i, (input, power, price) in enumerate(dataloader):
+    for i, (input, power, price) in enumerate(dataloader):
+        input = input.to(device)
+        pred = model(input)
+        released = pred[:,:,0]
+        stored = pred[:,:,1]
+        loss = criterion(released, stored, power, price)
 
-            input = input.to(device)
-            pred = model(input)
-            released = pred[:,:,0]
-            stored = pred[:,:,0]
-            loss = criterion(released, stored, power, price)
-    
-            epoch_train_loss.append(loss.detach().cpu().numpy())
-            epoch_avg_release.append(torch.mean(released).detach().cpu().numpy())
-
-        avg_val_loss = np.mean(epoch_train_loss)
-        avg_release = np.mean(epoch_avg_release)
-        val_loss.append(avg_val_loss)
-        releases.append(avg_release)
-    return np.mean(val_loss), avg_release
+        val_loss.append(loss.detach().cpu().numpy())
+        releases.append(torch.mean(released).detach().cpu().numpy())
+    return np.mean(val_loss), np.mean(releases)
 
 def save_train_metrics(train_loss, val_loss, model_folder, config, unique_code_str):
     plot_losses(train_loss, val_loss, model_folder+f"hidden{config['hidden_size']}_seqlen{config['seq_length']}_{unique_code_str}")

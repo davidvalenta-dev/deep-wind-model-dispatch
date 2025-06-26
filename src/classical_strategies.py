@@ -7,7 +7,9 @@ def base_load(power):
     avg = np.mean(power)
     stored = 0
     released = np.zeros(shape=(len(power)))
+    stored_ts = np.zeros(shape=(len(power)))
     for i in range(len(power)):
+        stored_ts[i] = stored
         g = power[i]
         if g == avg:
             released[i] = avg
@@ -18,7 +20,7 @@ def base_load(power):
             margin = min(avg - g, stored)
             stored -= margin
             released[i] = margin + g
-    return released
+    return released, stored_ts
 
 def base_load_modified(power, price):
     g_avg = np.mean(power)

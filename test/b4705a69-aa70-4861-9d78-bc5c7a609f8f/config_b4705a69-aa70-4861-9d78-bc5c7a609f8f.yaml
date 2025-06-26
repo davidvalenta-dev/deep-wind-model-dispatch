@@ -24,7 +24,7 @@ baseload_degree: 3
 # Mitigates massive storage by penalizing model as its total energy stored increases
 storage_factor: 1
 storage_degree: 3
-storage_threshold: 4
+storage_threshold: 5
 
 ## TRAINING PARAMETERS
 learning_rate: 0.001

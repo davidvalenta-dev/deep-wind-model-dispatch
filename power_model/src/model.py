@@ -7,10 +7,9 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NQF_RNN(nn.Module):
-    def __init__(self, hidden_size, num_layers, nqf_hidden_sizes, input_size=1, output_size=1):
+    def __init__(self, hidden_size, num_layers, nqf_hidden_sizes, input_size=1):
         super(NQF_RNN, self).__init__()
         self.input_size = input_size
-        self.output_size = output_size
         self.num_layers = num_layers
         self.hidden_size = hidden_size
 

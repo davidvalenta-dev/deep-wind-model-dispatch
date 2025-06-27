@@ -25,13 +25,17 @@ def load_model(model_path, config_path):
 
 def load_dataset_no_split(csv_path):
     df = pd.read_csv(csv_path)
-    speed = df['speed']
-    power = df['power']
+    speed = torch.tensor(df['speed'], dtype=torch.float)
+    power = torch.tensor(df['power'], dtype=torch.float)
 
     # Normalize power
-    power /= np.max(power)
+    power /= torch.max(power)
 
-    return torch.tensor(speed, dtype=torch.float), torch.tensor(power, dtype=torch.float)
+    # Shift to account for time zone difference
+    speed = speed[6:]
+    power = power[:-6]
+
+    return speed, power
 
 def load_dataset(csv_path, config):
     df = pd.read_csv(csv_path)
@@ -40,6 +44,10 @@ def load_dataset(csv_path, config):
 
     # Normalize power
     power /= np.max(power)
+
+    # Shift to account for time zone difference
+    speed = speed[6:]
+    power = power[:-6]
 
     # Chunk data into sequences of length config['seq_length']
     seq_length = config['seq_length']

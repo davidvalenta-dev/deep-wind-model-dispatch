@@ -1,5 +1,5 @@
 ## DATA PARAMETERS
-seq_length: 72        # 168 = 24 * 7,   720 = 24 * 30
+seq_length: 48        # 168 = 24 * 7,   720 = 24 * 30
 
 ## MODEL HYPERPARAMETERS
 hidden_size: 32
@@ -9,7 +9,7 @@ nqf_hidden_sizes: [32, 16]
 ## TRAINING PARAMETERS
 learning_rate: 0.001
 batch_size: 6
-epochs: 64
+epochs: 32
 
 # Contains quantiles to learn to predict, these values are the same as those used in the NQF-RNN paper
 quantile_levels: [0.01, 0.05, 0.1, 0.5, 0.9, 0.99]

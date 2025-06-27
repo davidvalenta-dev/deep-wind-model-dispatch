@@ -5,3 +5,5 @@ xarray
 numpy
 openpyxl
 matplotlib
+torch
+tabulate

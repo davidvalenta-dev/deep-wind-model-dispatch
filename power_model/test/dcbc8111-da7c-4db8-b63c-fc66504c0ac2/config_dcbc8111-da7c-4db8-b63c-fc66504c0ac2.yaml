@@ -1,5 +1,5 @@
 ## DATA PARAMETERS
-seq_length: 168        # 168 = 24 * 7,   720 = 24 * 30
+seq_length: 120        # 168 = 24 * 7,   720 = 24 * 30
 
 ## MODEL HYPERPARAMETERS
 hidden_size: 32

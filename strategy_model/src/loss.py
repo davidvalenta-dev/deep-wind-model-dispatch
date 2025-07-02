@@ -10,7 +10,7 @@ class VFLoss(nn.Module):
         self.baseload_factor = baseload_factor
         self.storage_factor = storage_factor
         self.storage_degree = storage_degree
-        self.price_factor = 8 # price_factor
+        self.price_factor = 5 # price_factor
         self.price_degree = 2 # price_degree
         # Controls threshold, below which the model is not penalized for its stored energy
         self.storage_threshold = storage_threshold
@@ -26,9 +26,10 @@ class VFLoss(nn.Module):
         # Take batchwise loss
         brev = util.batchwise_revenue(released, price)
         cove = 1 / (torch.abs(brev) + self.epsilon)
-        baseline_penalty = (self.baseload_factor * torch.maximum(released - power_avg, torch.zeros(B,T))) ** self.baseload_degree
+        baseload_penalty = (self.baseload_factor * torch.maximum(released - power_avg, torch.zeros(B,T))) ** self.baseload_degree
         storage_penalty = (self.storage_factor * torch.maximum(stored - self.storage_threshold, torch.zeros(B,T))) ** self.storage_degree
-        price_penalty = (self.price_factor * (price / price_avg)) ** self.price_degree
+        price_penalty = torch.minimum(price / price_avg, torch.full(size=(B,T), fill_value=self.price_factor)) #(self.price_factor * (price / price_avg)) ** self.price_degree
+        inverse_price_penalty = torch.minimum(torch.abs(torch.full(size=(B,T), fill_value=price_avg) / price), torch.full(size=(B,T), fill_value=self.price_factor))
         # Average over batches
-        loss = torch.mean(cove) + torch.mean(baseline_penalty) + torch.mean(storage_penalty * price_penalty)
+        loss = torch.mean(cove) + torch.mean(baseload_penalty * inverse_price_penalty) + torch.mean(storage_penalty * price_penalty)
         return loss

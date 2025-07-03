@@ -7,6 +7,8 @@ from loss import VFLoss
 from util import plot_losses
 import shutil
 
+YEAR_1_POWER_AVG = 0.4261777997016907
+
 def train(model, train_dataloader, val_dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = VFLoss(config['baseload_degree'], 
@@ -43,7 +45,7 @@ def train(model, train_dataloader, val_dataloader, config):
             pred = model(input)
             released = pred[:,:,0]
             stored = pred[:,:,1]
-            loss = criterion(released, stored, power, price)
+            loss = criterion(released, stored, power, price, YEAR_1_POWER_AVG)
 
             epoch_train_loss.append(loss.detach().cpu().numpy())
             if i % 10 == 0:
@@ -91,7 +93,7 @@ def validate(model, dataloader, config):
         pred = model(input)
         released = pred[:,:,0]
         stored = pred[:,:,1]
-        loss = criterion(released, stored, power, price)
+        loss = criterion(released, stored, power, price, YEAR_1_POWER_AVG)
 
         val_loss.append(loss.detach().cpu().numpy())
         releases.append(torch.mean(released).detach().cpu().numpy())

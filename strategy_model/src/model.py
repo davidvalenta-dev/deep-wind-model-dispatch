@@ -9,7 +9,7 @@ class VFNN_2(nn.Module):
         self.input_size = input_size
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        
+
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers=num_layers, batch_first=True)
 
         # Custom PLinear class squares weights to ensure monotonicity

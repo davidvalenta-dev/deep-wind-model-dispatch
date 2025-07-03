@@ -1,5 +1,5 @@
 ## DATA PARAMETERS
-seq_length: 168        # 168 = 24 * 7,   720 = 24 * 30
+seq_length: 600        # 168 = 24 * 7,   720 = 24 * 30
 rated_capacity: 249   # in MW
 price_threshold: 1000
 
@@ -9,7 +9,7 @@ num_hidden: 3
 fc_hidden_sizes: [32, 16]
 
 ## LOSS HYPERPARAMETERS
-# This is a small value that prevents the LCOE from causing a division by 0
+# This is a small value that prevents the COVE computation from causing a division by 0
 # There shouldn't be much reason to change this
 epsilon: 0.00001
 
@@ -18,8 +18,8 @@ epsilon: 0.00001
 
 # Promotes baseload behavior by penalizing model for releasing power 
 # less than the current time-windows (seq_length) power average
-baseload_factor: 12
-baseload_degree: 5
+baseload_factor: 10
+baseload_degree: 2
 
 # Mitigates massive storage by penalizing model as its total energy stored increases
 storage_factor: 1
@@ -28,7 +28,7 @@ storage_threshold: 36
 
 ## TRAINING PARAMETERS
 learning_rate: 0.0005
-batch_size: 5
+batch_size: 2
 epochs: 32
 
 # Early stopping

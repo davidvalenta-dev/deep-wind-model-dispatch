@@ -16,6 +16,11 @@ class VFLoss(nn.Module):
         self.storage_threshold = storage_threshold
         # Prevents division by 0 in COVE computation
         self.epsilon = epsilon
+        # For adaptive term
+        self.epoch = 0
+    
+    def step(self):
+        self.epoch += 1
 
     def forward(self, released, stored, power, price, ground_truth_avg=-1):
         B = power.shape[0]
@@ -30,11 +35,13 @@ class VFLoss(nn.Module):
         brev = util.batchwise_revenue(released, price)
         cove = 1 / (torch.abs(brev) + self.epsilon)
         # baseload_penalty = (self.baseload_factor * torch.maximum(released - power_avg, torch.zeros(B,T))) ** self.baseload_degree
-        baseload_penalty = (self.baseload_factor * torch.sqrt((released - power_avg) ** 2)) ** self.baseload_degree
+        #baseload_penalty_L2 = (self.baseload_factor * torch.sqrt((released - power_avg) ** 2)) ** self.baseload_degree
+        baseload_penalty = (self.baseload_factor * torch.maximum(released - power_avg, torch.zeros(B,T))) ** self.baseload_degree
         storage_penalty = (self.storage_factor * torch.maximum(stored - self.storage_threshold, torch.zeros(B,T))) ** self.storage_degree
         price_penalty = torch.minimum(price / price_avg, torch.full(size=(B,T), fill_value=self.price_factor)) #(self.price_factor * (price / price_avg)) ** self.price_degree
         inverse_price_penalty = torch.minimum(torch.abs(torch.full(size=(B,T), fill_value=price_avg) / price), torch.full(size=(B,T), fill_value=self.price_factor))
+        adaptive_term = 1 / ((self.epoch + 1) ** (1/3))
         # Average over batches
-        #loss = torch.mean(cove) + torch.mean(baseload_penalty * inverse_price_penalty) + torch.mean(storage_penalty * price_penalty)
-        loss = torch.mean(baseload_penalty)
+        loss = torch.mean(cove) + (torch.mean(baseload_penalty * inverse_price_penalty) + torch.mean(storage_penalty * price_penalty)) # * adaptive_term
+        # loss = torch.mean(baseload_penalty_L2)
         return loss

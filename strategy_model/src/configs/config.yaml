@@ -1,5 +1,5 @@
 ## DATA PARAMETERS
-seq_length: 600        # 168 = 24 * 7,   720 = 24 * 30
+seq_length: 168       # 168 = 24 * 7,   720 = 24 * 30
 rated_capacity: 249   # in MW
 price_threshold: 1000
 
@@ -18,7 +18,7 @@ epsilon: 0.00001
 
 # Promotes baseload behavior by penalizing model for releasing power 
 # less than the current time-windows (seq_length) power average
-baseload_factor: 10
+baseload_factor: 12
 baseload_degree: 2
 
 # Mitigates massive storage by penalizing model as its total energy stored increases
@@ -29,7 +29,7 @@ storage_threshold: 36
 ## TRAINING PARAMETERS
 learning_rate: 0.0005
 batch_size: 2
-epochs: 32
+epochs: 64
 
 # Early stopping
 early_stop_epoch: 12

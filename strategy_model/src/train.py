@@ -51,9 +51,11 @@ def train(model, train_dataloader, val_dataloader, config):
             if i % 10 == 0:
                 print(f'Batch {i} loss: {loss.detach().cpu().numpy()}')
                 # print(f'Batch {i} final storage: {stored[:, -1].detach().cpu().numpy()}')
-
+            
             loss.backward()
             optimizer.step()
+        # Steps forward adaptive loss term
+        criterion.step()
         avg_train_loss = np.mean(epoch_train_loss)
         avg_val_loss, avg_release = validate(model, val_dataloader, config)
 

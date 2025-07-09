@@ -7,16 +7,12 @@ from loss import VFLoss
 from util import plot_losses
 import shutil
 
+# Empirically gathered for 2018, used with ground_truth_avg arg in loss to determine models ability to learn average a priori
 YEAR_1_POWER_AVG = 0.4261777997016907
 
 def train(model, train_dataloader, val_dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    criterion = VFLoss(config['baseload_degree'], 
-                       config['baseload_factor'], 
-                       config['storage_degree'], 
-                       config['storage_factor'],
-                       config['storage_threshold'],
-                       config['epsilon'])
+    criterion = VFLoss(config)
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     early_stopper = EarlyStopper(config['patience'], config['early_stop_epoch'])
     
@@ -45,7 +41,8 @@ def train(model, train_dataloader, val_dataloader, config):
             pred = model(input)
             released = pred[:,:,0]
             stored = pred[:,:,1]
-            loss = criterion(released, stored, power, price, YEAR_1_POWER_AVG)
+            # loss = criterion(released, stored, power, price, config['battery_rating'], config['battery_duration'])
+            loss = criterion(released, stored, power, price)
 
             epoch_train_loss.append(loss.detach().cpu().numpy())
             if i % 10 == 0:
@@ -82,12 +79,7 @@ def train(model, train_dataloader, val_dataloader, config):
 
 def validate(model, dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    criterion = VFLoss(config['baseload_degree'], 
-                       config['baseload_factor'], 
-                       config['storage_degree'], 
-                       config['storage_factor'],
-                       config['storage_threshold'],
-                       config['epsilon'])
+    criterion = VFLoss(config)
     val_loss = []
     releases = []
     for i, (input, power, price) in enumerate(dataloader):
@@ -95,7 +87,8 @@ def validate(model, dataloader, config):
         pred = model(input)
         released = pred[:,:,0]
         stored = pred[:,:,1]
-        loss = criterion(released, stored, power, price, YEAR_1_POWER_AVG)
+        # loss = criterion(released, stored, power, price, config['battery_rating'], config['battery_duration'])
+        loss = criterion(released, stored, power, price)
 
         val_loss.append(loss.detach().cpu().numpy())
         releases.append(torch.mean(released).detach().cpu().numpy())

@@ -1,0 +1,41 @@
+## DATA PARAMETERS
+seq_length: 168       # 168 = 24 * 7,   720 = 24 * 30
+rated_capacity: 249   # in MW
+price_threshold: 1000
+
+## MODEL HYPERPARAMETERS
+hidden_size: 32
+num_hidden: 3
+fc_hidden_sizes: [32, 16]
+
+## LOSS HYPERPARAMETERS
+# This is a small value that prevents the COVE computation from causing a division by 0
+# There shouldn't be much reason to change this
+epsilon: 0.00001
+
+# As the associated polynomial for the following parameters grows, 
+# the associated behavior will be more strongly enforced during training
+
+# Promotes baseload behavior by penalizing model for releasing power 
+# less than the current time-windows (seq_length) power average
+baseload_factor: 10
+baseload_degree: 2
+
+# Mitigates massive storage by penalizing model as its total energy stored increases
+storage_factor: 1
+storage_degree: 3
+storage_threshold: 36
+
+## TRAINING PARAMETERS
+learning_rate: 0.0005
+batch_size: 2
+epochs: 64
+
+# Early stopping
+early_stop_epoch: 12
+patience: 4
+
+# Train-validation-test split
+train_percent: 0.8
+val_percent: 0.1
+test_percent: 0.1

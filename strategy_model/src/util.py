@@ -8,11 +8,41 @@ import pandas as pd
 from dataset import VFDataset, VF2Dataset
 from torch.utils.data import Dataset, DataLoader
 
+## CONSTANTS FOR CAPEX AND OPEX
+# These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/lithium-ion-battery
+RATINGS = np.array([1, 10, 100, 1000])
+DURATIONS = np.array([2, 4, 6, 8, 10, 24, 100])
+# CAPEX is indexed by [rating, duration]
+CAPEX = np.array([[1040.88, 1841.72, 2648.46, 3453.84, 4256.60, 9840.96, 39754.00],
+                  [904.44, 1618.62, 2350.83, 3070.57, 3793.15, 8815.37, 35696.05],
+                  [846.01, 1490.89, 2158.16, 2823.31, 3490.67, 8120.59, 32913.67],
+                  [787.51, 1406.11, 2036.53, 2672.06, 3311.12, 7727.58, 29945.62]])
+
+# OPEX is indexed by [rating, duration]
+OPEX = np.array([[3.17, 5.47, 6.98, 8.76, 10.59, 23.30, 90.47],
+                 [2.79, 4.59, 6.37, 8.12, 9.87, 21.98, 85.98],
+                 [2.56, 4.27, 5.96, 7.63, 9.33, 20.84, 81.82],
+                 [2.37, 3.99, 5.63, 7.21, 8.79, 19.78, 77.88]])
+
+# independent of rating, duration
+RTE = 0.83
+
+def get_battery_specs(rating, duration):
+    rating_idx = np.where(RATINGS == rating)[0]
+    duration_idx = np.where(DURATIONS == duration)[0]
+    capex = CAPEX[rating_idx, duration_idx]
+    opex = OPEX[rating_idx, duration_idx]
+    return capex, opex, RTE
+
 ## UTILS FOR VF CALCULATION
 
 # These are useful for visualization purposes, the batchwise variants are useful for training
-def cove(power, price, range=()):
-    return 1 / revenue(power, price, range)
+def cove(power, price, battery_rating=None, battery_duration=None):
+    cost = 1
+    if battery_rating != None and battery_duration != None:
+        capex, opex, rte = get_battery_specs(battery_rating, battery_duration)
+        cost = capex + opex
+    return cost / revenue(power, price)
 
 def revenue(power, price, range=()):
     if(len(power) != len(price)):
@@ -42,6 +72,20 @@ def batchwise_value_factor(batch_power, batch_price):
     P_avg = torch.mean(batch_price, dim=1)
     return P_wind / P_avg
 
+def batchwise_cove(batch_power, batch_price, epsilon, battery_rating=None, battery_duration=None):
+    #if rating and duration not give, use idealized COVE with no cost in the numerator
+    cost = 1
+    #otherwise, compute costs
+    if battery_rating != None and battery_duration != None:
+        capex, opex, rte = get_battery_specs(battery_rating, battery_duration)
+        cost = capex.squeeze() + opex.squeeze()
+        
+    brev = batchwise_revenue(batch_power, batch_price)
+    epsilon_tensor = torch.full_like(brev, epsilon)
+    cost_tensor = torch.full_like(brev, cost)
+    bcove = cost_tensor / (brev + epsilon_tensor)
+    return bcove
+
 ## MISC. UTILS 
 def normalize_price(prices, config):
     threshold = config['price_threshold']
@@ -67,7 +111,12 @@ def load_model(model_path, config_path, with_loads=False):
 
 def load_model_with_loads(model_path, config_path):
     config = load_config(config_path)
-    model = VFNN_2(config['hidden_size'], config['num_hidden'], config['fc_hidden_sizes'])
+    model = VFNN_2(config['hidden_size'], 
+                   config['num_hidden'], 
+                   config['fc_hidden_sizes'], 
+                   config['rated_capacity'],
+                   config['battery_rating'],
+                   config['battery_duration'])
     model.load_state_dict(torch.load(model_path, weights_only=True))
     return model
 
@@ -94,8 +143,8 @@ def load_dataset_no_split(csv_path, config, with_loads=False):
 def load_dataset_no_split_with_loads(csv_path, config):
     df = pd.read_csv(csv_path)
     cf = df['power_cf']
-    # Keeping normalized for now, it seems like anything else causes numerical instability
-    power = cf #* config['rated_capacity']
+    # Cannot normalize due to battery specs being rated for MW
+    power = cf * config['rated_capacity']
     prices = df['lmp']
     prices = normalize_price(prices, config)
     loads = df['user_load_zonal']
@@ -170,8 +219,8 @@ def load_dataset(csv_path, config, with_loads=False):
 def load_dataset_with_loads(csv_path, config):    
     df = pd.read_csv(csv_path)
     cf = df['power_cf']
-    # Keeping normalized for now, it seems like anything else causes numerical instability
-    power = cf #* config['rated_capacity']
+    # Cannot normalize due to battery specs being rated for MW
+    power = cf * config['rated_capacity']
     prices = df['lmp']
     prices = normalize_price(prices, config)
 

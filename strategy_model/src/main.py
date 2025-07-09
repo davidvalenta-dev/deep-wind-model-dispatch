@@ -17,7 +17,13 @@ def main():
     # model = VFNN(config['hidden_size'], config['num_hidden'], config['fc_hidden_sizes'])
 
     # VFNN_2 uses load data as well, otherwise the same as VFNN
-    model = VFNN_2(config['hidden_size'], config['num_hidden'], config['fc_hidden_sizes'])
+    model = VFNN_2(config['hidden_size'], 
+                   config['num_hidden'], 
+                   config['fc_hidden_sizes'], 
+                   config['rated_capacity'],
+                   config['battery_rating'], 
+                   config['battery_duration'])
+    
     train(model, train_loader, val_loader, config)
     
     test_loss = validate(model, test_loader, config)[0]

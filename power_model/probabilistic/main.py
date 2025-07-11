@@ -45,7 +45,7 @@ def main():
     for params in param_combinations:
         model = ProbModel(
             binning_method='equal_width',
-            interval_params=0.5,
+            interval_params=1,
             **params
         )
 
@@ -69,7 +69,7 @@ def main():
             best_params = params
             best_model = ProbModel(
                 binning_method='equal_width',
-                interval_params=0.5,
+                interval_params=1,
                 **params
             )
             best_model.fit(train_df['speed'], train_df['power'])

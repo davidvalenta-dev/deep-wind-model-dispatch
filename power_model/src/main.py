@@ -1,6 +1,6 @@
 import torch
 import util
-from model import NQF_RNN
+from model import NQF_RNN, NQF_RNN_AR
 from util import load_dataset
 from train import train, validate
 
@@ -14,7 +14,8 @@ def main():
     print(f'Power shape: {power.shape}')
     assert power.shape[0] == speed.shape[0] and power.shape[0] == config['seq_length']
 
-    model = NQF_RNN(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
+    # model = NQF_RNN(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
+    model = NQF_RNN_AR(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
     train(model, train_loader, val_loader, config)
 
     test_loss = validate(model, test_loader, config)

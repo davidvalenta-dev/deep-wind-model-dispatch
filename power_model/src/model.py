@@ -33,6 +33,43 @@ class NQF_RNN(nn.Module):
             preds[:,t] = quantile_pred.squeeze()
         return preds
 
+class NQF_RNN_AR(nn.Module):
+    def __init__(self, hidden_size, num_layers, nqf_hidden_sizes, input_size=1):
+        super(NQF_RNN_AR, self).__init__()
+        self.input_size = input_size
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+
+        self.lstm = nn.LSTM(input_size+1, hidden_size, num_layers=num_layers, batch_first=True)
+        self.nqf = NQF(hidden_size, nqf_hidden_sizes)
+
+    def forward(self, x, alphas, targets=None):
+        x = x.unsqueeze(-1)
+        B = x.shape[0] #batch size
+        T = x.shape[1] #timesteps
+        
+        hidden = None
+        prev_pred = torch.zeros(B, 1).to(device)
+        
+        preds = []
+        for t in range(T):
+            if self.training and targets is not None:
+                # teacher forcing during training
+                power_input = targets[:, t-1:t] if t > 0 else prev_pred
+            else:
+                # autoregressive method during testing
+                power_input = prev_pred
+            
+            lstm_input = torch.cat([x[:, t:t+1, :], power_input.unsqueeze(-1)], dim=2)
+            output, hidden = self.lstm(lstm_input, hidden)
+            
+            quantile_pred = self.nqf(output.squeeze(1), alphas[t])
+            preds.append(quantile_pred)
+            prev_pred = quantile_pred
+
+        return torch.cat(preds, dim=1)
+
+
 class PLinear(nn.Module):
     """
     class Linear(nn.Module):

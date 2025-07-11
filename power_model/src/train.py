@@ -35,6 +35,7 @@ def train(model, train_dataloader, val_dataloader, config):
     train_loss = []
     val_loss = []
     for t in range(config['epochs']):
+        model.train()
         epoch_train_loss = []
         for i, (speed, power) in enumerate(train_dataloader):
             if speed.shape[0] != B:
@@ -47,7 +48,7 @@ def train(model, train_dataloader, val_dataloader, config):
             quantile_preds = torch.empty(size=(B, T, len(quantile_levels)))
             for m in range(len(quantile_levels)):
                 quantile_lvl = quantile_levels[m].repeat(T)
-                pred = model(speed, quantile_lvl)
+                pred = model(speed, quantile_lvl, targets=power)
                 quantile_preds[:,:,m] = pred.squeeze()
 
             loss = criterion(quantile_levels, quantile_preds, power)
@@ -59,6 +60,8 @@ def train(model, train_dataloader, val_dataloader, config):
             loss.backward()
             optimizer.step()
         avg_train_loss = np.mean(epoch_train_loss)
+        
+        model.eval()
         avg_val_loss = validate(model, val_dataloader, config)
 
         # Save best model checkpoint

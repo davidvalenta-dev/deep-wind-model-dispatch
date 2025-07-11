@@ -3,7 +3,7 @@ import yaml
 import matplotlib.pyplot as plt
 import torch
 import os
-from model import NQF_RNN
+from model import NQF_RNN, NQF_RNN_AR
 import pandas as pd
 from dataset import WindDataset
 from torch.utils.data import DataLoader
@@ -17,10 +17,13 @@ def load_config(file_path):
         config = yaml.safe_load(file)
     return config
 
-def load_model(model_path, config_path):
+def load_model(model_path, config_path, use_autoregressive=False):
     config = load_config(config_path)
-    model = NQF_RNN(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
-    model.load_state_dict(torch.load(model_path, weights_only=True))
+    if use_autoregressive:
+        model = NQF_RNN_AR(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
+    else:
+        model = NQF_RNN(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
+    model.load_state_dict(torch.load(model_path))
     return model
 
 def load_dataset_no_split(csv_path):
@@ -94,12 +97,12 @@ def load_dataset(csv_path, config):
     return train_dataloader, val_dataloader, test_dataloader
 
 # Returns config, model, and dataset (without split) for use with model evaluation
-def load_experiment(folder_name, dataset_path):
+def load_experiment(folder_name, dataset_path, use_autoregressive=False):
     dir = f'../test/{folder_name}'
     config_path = f'{dir}/config_{folder_name}.yaml'
     model_path = f'{dir}/model_{folder_name}.pth'
     config = load_config(config_path)
-    model = load_model(model_path, config_path)
+    model = load_model(model_path, config_path, use_autoregressive)
     dataset = load_dataset_no_split(dataset_path)
     return model, dataset, config
 

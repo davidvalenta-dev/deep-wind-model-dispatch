@@ -16,6 +16,7 @@ def train(model, train_dataloader, val_dataloader, config):
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     early_stopper = EarlyStopper(config['patience'], config['early_stop_epoch'])
     
+    target_length = config['target_length']
     unique_code_str = uuid.uuid4()
 
     models_folder = '../test/'
@@ -38,6 +39,11 @@ def train(model, train_dataloader, val_dataloader, config):
             optimizer.zero_grad()
 
             input = input.to(device)
+            if input.shape[1] < target_length:
+                input = input.repeat(1, (int)(np.floor(target_length / input.shape[1])), 1)
+                power = input[:,:,0]
+                price = input[:,:,1]
+
             pred = model(input)
             released = pred[:,:,0]
             stored = pred[:,:,1]
@@ -80,10 +86,16 @@ def train(model, train_dataloader, val_dataloader, config):
 def validate(model, dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = VFLoss(config)
+    target_length = config['target_length']
     val_loss = []
     releases = []
     for i, (input, power, price) in enumerate(dataloader):
         input = input.to(device)
+        if input.shape[1] < target_length:
+            input = input.repeat(1, (int)(np.floor(target_length / input.shape[1])), 1)
+            power = input[:,:,0]
+            price = input[:,:,1]
+
         pred = model(input)
         released = pred[:,:,0]
         stored = pred[:,:,1]

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import util
+import numpy as np
 
 # VFNN_2 also takes in user load as an input feature, otherwise it is the same as VFNN
 class VFNN_2(nn.Module):

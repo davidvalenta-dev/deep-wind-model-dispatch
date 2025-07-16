@@ -1,5 +1,6 @@
 ## DATA PARAMETERS
 seq_length: 168       # 168 = 24 * 7,   720 = 24 * 30
+target_length: 8760
 rated_capacity: 249   # in MW
 price_threshold: 1000
 
@@ -33,8 +34,8 @@ storage_degree: 3
 storage_threshold: 1000
 
 # Enforces behaviors above more or less strongly depending on whether or not price is above or below average
-price_factor: 1
-price_degree: 2
+price_factor: 4
+price_degree: 3
 
 # Adaptively scales effect of penalties as epochs trained increase, only applies after adaptive epoch is reached
 adaptive_factor: 1

@@ -6,8 +6,8 @@ from train import train, validate
 
 def main():
     config = util.load_config('./configs/config.yaml')
-    train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_2018-21_withloads.csv', config, with_loads=True)
-
+    train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_1980-2023_withloads.csv', config, with_loads=True)
+    print(f'Training examples: {len(train_loader.dataset)}')
     # Test entry in data loader as sanity check
     (data, power, price) = train_loader.dataset[0]
     print(f'Power shape: {power.shape}')

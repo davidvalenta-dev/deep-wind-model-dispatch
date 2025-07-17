@@ -51,8 +51,8 @@ def train(model, train_dataloader, val_dataloader, config):
             loss = criterion(released, stored, power, price)
 
             epoch_train_loss.append(loss.detach().cpu().numpy())
-            if i % 10 == 0:
-                print(f'Batch {i} loss: {loss.detach().cpu().numpy()}')
+            # if i % 10 == 0:
+            print(f'Batch {i} loss: {loss.detach().cpu().numpy()}')
                 # print(f'Batch {i} final storage: {stored[:, -1].detach().cpu().numpy()}')
             
             loss.backward()

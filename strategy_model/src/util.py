@@ -120,14 +120,14 @@ def load_model_with_loads(model_path, config_path):
     model.load_state_dict(torch.load(model_path, weights_only=True))
     return model
 
-def load_dataset_no_split(csv_path, config, with_loads=False):
+def load_dataset_no_split(csv_path, config, with_loads=False, cf=True):
     if with_loads:
-        return load_dataset_no_split_with_loads(csv_path, config)
+        return load_dataset_no_split_with_loads(csv_path, config, cf=cf)
     
     df = pd.read_csv(csv_path)
-    cf = df['power_cf']
-    # Keeping normalized for now, it seems like anything else causes numerical instability
-    power = cf #* config['rated_capacity']
+    power = df['power_generated']
+    if(cf):
+        power = power * config['rated_capacity']
     prices = df['lmp']
     prices = normalize_price(prices, config)
 
@@ -140,11 +140,11 @@ def load_dataset_no_split(csv_path, config, with_loads=False):
     return data_tensor
 
 
-def load_dataset_no_split_with_loads(csv_path, config):
+def load_dataset_no_split_with_loads(csv_path, config, cf=True):
     df = pd.read_csv(csv_path)
-    cf = df['power_cf']
-    # Cannot normalize due to battery specs being rated for MW
-    power = cf * config['rated_capacity']
+    power = df['power_generated']
+    if(cf):
+        power = power * config['rated_capacity']
     prices = df['lmp']
     prices = normalize_price(prices, config)
     loads = df['user_load_zonal']
@@ -165,9 +165,7 @@ def load_dataset(csv_path, config, with_loads=False):
         return load_dataset_with_loads(csv_path, config)
     
     df = pd.read_csv(csv_path)
-    cf = df['power_cf']
-    # Keeping normalized for now, it seems like anything else causes numerical instability
-    power = cf #* config['rated_capacity']
+    power = df['power_generated']
     prices = df['lmp']
     prices = normalize_price(prices, config)
 
@@ -218,9 +216,7 @@ def load_dataset(csv_path, config, with_loads=False):
 
 def load_dataset_with_loads(csv_path, config):    
     df = pd.read_csv(csv_path)
-    cf = df['power_cf']
-    # Cannot normalize due to battery specs being rated for MW
-    power = cf * config['rated_capacity']
+    power = df['power_generated']
     prices = df['lmp']
     prices = normalize_price(prices, config)
 
@@ -275,13 +271,13 @@ def load_dataset_with_loads(csv_path, config):
     return train_dataloader, val_dataloader, test_dataloader
 
 # Returns config, model, and dataset (without split) for use with model evaluation
-def load_experiment(folder_name, dataset_path, with_loads=False):
+def load_experiment(folder_name, dataset_path, with_loads=False, cf=True):
     dir = f'../test/{folder_name}'
     config_path = f'{dir}/config_{folder_name}.yaml'
     model_path = f'{dir}/model_{folder_name}.pth'
     config = load_config(config_path)
     model = load_model(model_path, config_path, with_loads=with_loads)
-    dataset = load_dataset_no_split(dataset_path, config, with_loads=with_loads)
+    dataset = load_dataset_no_split(dataset_path, config, with_loads=with_loads, cf=cf)
     return model, dataset, config
 
 def plot_losses(train_losses, val_losses, fname):

@@ -1,0 +1,56 @@
+## DATA PARAMETERS
+seq_length: 168       # 168 = 24 * 7,   720 = 24 * 30
+rated_capacity: 249   # in MW
+price_threshold: 1000
+
+## BATTERY PARAMATERS
+# The following two parameters fully describe the system, and from these CAPEX and round-trip efficiency (RTE) are
+# calculated based on 2023 data from PNNL at https://www.pnnl.gov/projects/esgc-cost-performance/lithium-ion-battery
+battery_rating: 1000  # in MW [1, 10, 100, 1000] (these options sourced from link above)
+battery_duration: 2 # in hrs [2, 4, 6, 8, 10, 24, 100] (these options sourced from link above)
+
+## MODEL HYPERPARAMETERS
+hidden_size: 32
+num_hidden: 3
+fc_hidden_sizes: [32, 16]
+
+## LOSS HYPERPARAMETERS
+# This is a small value that prevents the COVE computation from causing a division by 0
+# There shouldn't be much reason to change this
+epsilon: 0.00001
+
+# As the associated polynomial for the following parameters grows, 
+# the associated behavior will be more strongly enforced during training
+
+# Promotes baseload behavior by penalizing model for releasing power 
+# less than the current time-windows (seq_length) power average
+baseload_factor: 1
+baseload_degree: 1
+
+# Mitigates massive storage by penalizing model as its total energy stored increases
+storage_factor: 1
+storage_degree: 3
+storage_threshold: 0
+
+# Enforces behaviors above more or less strongly depending on whether or not price is above or below average
+price_factor: 3
+price_degree: 2
+
+# Adaptively scales effect of penalties as epochs trained increase, only applies after adaptive epoch is reached
+adaptive_factor: 1
+adaptive_degree: 0.25
+adaptive_epoch: 100
+
+## TRAINING PARAMETERS
+learning_rate: 0.0001
+batch_size: 2
+epochs: 64
+
+# Early stopping
+early_stop_epoch: 6
+patience: 3
+
+# Train-validation-test split
+train_percent: 0.8
+val_percent: 0.1
+test_percent: 0.1

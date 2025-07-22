@@ -1,14 +1,21 @@
 ## DATA PARAMETERS
-seq_length: 8760       # 168 = 24 * 7,   720 = 24 * 30
-target_length: 0
+seq_length: 168       # 168 = 24 * 7,   720 = 24 * 30
 rated_capacity: 249   # in MW
 price_threshold: 1000
 
-## BATTERY PARAMATERS
+storage_type: 'battery-li' # in [battery-li, caes, hydro]
+
+## STORAGE PARAMETERS
 # The following two parameters fully describe the system, and from these CAPEX and round-trip efficiency (RTE) are
 # calculated based on 2023 data from PNNL at https://www.pnnl.gov/projects/esgc-cost-performance/lithium-ion-battery
-battery_rating: 1000  # in MW [1, 10, 100, 1000] (these options sourced from link above)
-battery_duration: 2 # in hrs [2, 4, 6, 8, 10, 24, 100] (these options sourced from link above)
+storage_rating: 1000  # in MW
+# battery-li: [1, 10, 100, 1000]
+# caes: [100, 1000]
+# hydro: [100, 1000]
+storage_duration: 2 # in hrs
+# battery-li: [2, 4, 6, 8, 10, 24, 100]
+# caes: [4, 10, 24, 100]
+# hydro: [4, 10, 24, 100]
 
 ## MODEL HYPERPARAMETERS
 hidden_size: 32
@@ -40,18 +47,23 @@ price_degree: 3
 # Adaptively scales effect of penalties as epochs trained increase, only applies after adaptive epoch is reached
 adaptive_factor: 1
 adaptive_degree: 0.25
-adaptive_epoch: 100
+adaptive_epoch: 12
 
 ## TRAINING PARAMETERS
 learning_rate: 0.0001
-batch_size: 2
-epochs: 64
+batch_size: 8
+epochs: 2
 
 # Early stopping
 early_stop_epoch: 4
 patience: 3
 
 # Train-validation-test split
-train_percent: 0.8
-val_percent: 0.1
+train_percent: 0.7
+val_percent: 0.2
 test_percent: 0.1
+
+# Hyper-parameter search
+hp_search_cutoff_epoch: 0 # epoch to check against best model
+hp_comparison_length: 8760 # length of sequence to compare COVE against after cutoff epoch
+hp_runs: 100 # number of models to randomly search over

@@ -6,21 +6,20 @@ import numpy as np
 
 # VFNN_2 also takes in user load as an input feature, otherwise it is the same as VFNN
 class VFNN_2(nn.Module):
-    def __init__(self, hidden_size, num_layers, fc_hidden_sizes, wf_rating, battery_rating, battery_duration, input_size=4):
+    def __init__(self, hidden_size, num_layers, fc_hidden_sizes, wf_rating, storage_type, storage_rating, storage_duration, input_size=4):
         super().__init__()
         self.input_size = input_size
         self.num_layers = num_layers
         self.hidden_size = hidden_size
 
-        # BATTERY SPECS
-        self.battery_rating = battery_rating # should be in MW
-        self.duration = battery_duration # should be in hrs
-        self.capacity = battery_rating * battery_duration # should be in MWh
-
+        # STORAGE SPECS
+        self.storage_rating = storage_rating # should be in MW
+        self.duration = storage_duration # should be in hrs
+        self.capacity = storage_rating * storage_duration # should be in MWh
+        self.rte = util.get_rte(storage_type)
+        
         # WIND FARM SPECS
         self.wf_rating = wf_rating
-
-        self.rte = util.RTE
 
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers=num_layers, batch_first=True)
 
@@ -75,13 +74,13 @@ class VFNN_2(nn.Module):
             # Ensure availability condition not violated (cannot release energy > stored + generated)
             r = torch.minimum(torch.reshape(g, (B,1)) + torch.reshape(s, (B,1)), r)
             g_regen = torch.maximum(r - torch.reshape(g, (B,1)), torch.zeros((B,1)))
-            # Update lost power with any power that could have been stored but was not due to the battery rating
-            lost += torch.maximum(torch.zeros((B,1)), g_regen - torch.full_like(g_regen, self.battery_rating))
-            # Ensure power regenerated (discharged) from battery does not exceed battery power rating
-            g_regen = torch.minimum(g_regen, torch.full_like(g_regen, self.battery_rating))
+            # Update lost power with any power that could have been stored but was not due to the storage rating
+            lost += torch.maximum(torch.zeros((B,1)), g_regen - torch.full_like(g_regen, self.storage_rating))
+            # Ensure power regenerated (discharged) from storage does not exceed storage power rating
+            g_regen = torch.minimum(g_regen, torch.full_like(g_regen, self.storage_rating))
             g_direct = torch.maximum(r - g_regen, torch.zeros((B,1)))
             assert (g_regen + g_direct == r).all()
-            # Multiply energy discharged by battery by round trip efficiency (RTE) to accurately model physical losses
+            # Multiply energy discharged by storage by round trip efficiency (RTE) to accurately model physical losses
             lost += g_regen * (1 - self.rte)
             r_curtailed = g_direct + (g_regen * self.rte)
             preds[:, t, :] = torch.cat([r_curtailed, s, lost], dim=-1)
@@ -89,13 +88,13 @@ class VFNN_2(nn.Module):
             lost = torch.zeros((B,1))
             # Update stored energy for next time step
             charge = torch.reshape(g, (B,1)) - torch.reshape(r, (B,1))
-            # Ensure charge does not exceed battery power rating
-            s += torch.minimum(charge, torch.full_like(charge, self.battery_rating))
+            # Ensure charge does not exceed storage power rating
+            s += torch.minimum(charge, torch.full_like(charge, self.storage_rating))
             # Ensure storage is non-negative
             s = torch.maximum(s, torch.zeros((B,1)))
             # If storage exceeds capacity, add any power that will be capped to lost
             lost += torch.maximum(torch.zeros((B,1)), s - torch.full_like(s, self.capacity))
-            # Ensure storage does not exceed battery capacity
+            # Ensure storage does not exceed storage capacity
             s = torch.minimum(s, torch.full_like(s, self.capacity))
             # If there are more inputs left, append this prediction to next input 
             if t < T - 1:

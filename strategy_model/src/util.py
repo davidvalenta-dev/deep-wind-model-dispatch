@@ -9,38 +9,64 @@ from dataset import VFDataset, VF2Dataset
 from torch.utils.data import Dataset, DataLoader
 
 ## CONSTANTS FOR CAPEX AND OPEX
+STORAGE_TYPES = np.array(['battery-li', 'caes', 'hydro'])
 # These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/lithium-ion-battery
-RATINGS = np.array([1, 10, 100, 1000])
-DURATIONS = np.array([2, 4, 6, 8, 10, 24, 100])
+BATTERY_LI_RATINGS = np.array([1, 10, 100, 1000])
+BATTERY_LI_DURATIONS = np.array([2, 4, 6, 8, 10, 24, 100])
 # CAPEX is indexed by [rating, duration]
-CAPEX = np.array([[1040.88, 1841.72, 2648.46, 3453.84, 4256.60, 9840.96, 39754.00],
+BATTERY_LI_CAPEX = np.array([[1040.88, 1841.72, 2648.46, 3453.84, 4256.60, 9840.96, 39754.00],
                   [904.44, 1618.62, 2350.83, 3070.57, 3793.15, 8815.37, 35696.05],
                   [846.01, 1490.89, 2158.16, 2823.31, 3490.67, 8120.59, 32913.67],
                   [787.51, 1406.11, 2036.53, 2672.06, 3311.12, 7727.58, 29945.62]])
-
 # OPEX is indexed by [rating, duration]
-OPEX = np.array([[3.17, 5.47, 6.98, 8.76, 10.59, 23.30, 90.47],
+BATTERY_LI_OPEX = np.array([[3.17, 5.47, 6.98, 8.76, 10.59, 23.30, 90.47],
                  [2.79, 4.59, 6.37, 8.12, 9.87, 21.98, 85.98],
                  [2.56, 4.27, 5.96, 7.63, 9.33, 20.84, 81.82],
                  [2.37, 3.99, 5.63, 7.21, 8.79, 19.78, 77.88]])
 
-# independent of rating, duration
-RTE = 0.83
+# These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/compressed-air-energy-storage
+CAES_RATINGS = np.array([100, 1000])
+CAES_DURATIONS = np.array([4, 10, 24, 100])
+CAES_CAPEX = np.array([[1090.24, 1125.33, 1207.53, 1637.13],
+                       [992.93, 1025.37, 1101.30, 1497.66]])
+CAES_OPEX = np.array([[17.02, 15.43, 14.88, 16.50],
+                       [9.35, 9.18, 9.13, 9.28]])
 
-def get_battery_specs(rating, duration):
-    rating_idx = np.where(RATINGS == rating)[0]
-    duration_idx = np.where(DURATIONS == duration)[0]
-    capex = CAPEX[rating_idx, duration_idx]
-    opex = OPEX[rating_idx, duration_idx]
-    return capex, opex, RTE
+# These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/pumped-storage-hydropower
+HYDRO_RATINGS = np.array([100, 1000])
+HYDRO_DURATIONS = np.array([4, 10, 24, 100])
+HYDRO_CAPEX = np.array([[2703.26, 2786.84, 2950.29, 3415.97],
+                        [2011.66, 2019.89, 2154.67, 3179.96]])
+HYDRO_OPEX = np.array([[27.21, 27.21, 27.21, 27.21],
+                        [14.62, 14.62, 14.62, 14.62]])
+
+# indexed by storage type
+RTE = np.array([0.83, 0.55, 0.80])
+RATINGS = [BATTERY_LI_RATINGS, CAES_RATINGS, HYDRO_RATINGS]
+DURATIONS = [BATTERY_LI_DURATIONS, CAES_DURATIONS, HYDRO_DURATIONS]
+CAPEX = [BATTERY_LI_CAPEX, CAES_CAPEX, HYDRO_CAPEX]
+OPEX = [BATTERY_LI_OPEX, CAES_OPEX, HYDRO_OPEX]
+
+def get_rte(type):
+    type_idx = np.where(STORAGE_TYPES == type)[0]
+    return RTE[type_idx][0]
+
+def get_storage_specs(type, rating, duration):
+    type_idx = np.where(STORAGE_TYPES == type)[0][0]
+    rating_idx = np.where(RATINGS[type_idx] == rating)[0]
+    duration_idx = np.where(DURATIONS[type_idx] == duration)[0]
+    capex = CAPEX[type_idx][rating_idx, duration_idx]
+    opex = OPEX[type_idx][rating_idx, duration_idx]
+    rte = get_rte(type)
+    return capex, opex, rte
 
 ## UTILS FOR VF CALCULATION
 
 # These are useful for visualization purposes, the batchwise variants are useful for training
-def cove(power, price, battery_rating=None, battery_duration=None):
+def cove(power, price, storage_type=None, storage_rating=None, storage_duration=None):
     cost = 1
-    if battery_rating != None and battery_duration != None:
-        capex, opex, rte = get_battery_specs(battery_rating, battery_duration)
+    if storage_rating != None and storage_duration != None:
+        capex, opex, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
         cost = capex + opex
     return cost / revenue(power, price)
 
@@ -72,12 +98,12 @@ def batchwise_value_factor(batch_power, batch_price):
     P_avg = torch.mean(batch_price, dim=1)
     return P_wind / P_avg
 
-def batchwise_cove(batch_power, batch_price, epsilon, battery_rating=None, battery_duration=None):
+def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage_rating=None, storage_duration=None):
     #if rating and duration not give, use idealized COVE with no cost in the numerator
     cost = 1
     #otherwise, compute costs
-    if battery_rating != None and battery_duration != None:
-        capex, opex, rte = get_battery_specs(battery_rating, battery_duration)
+    if storage_rating != None and storage_duration != None:
+        capex, opex, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
         cost = capex.squeeze() + opex.squeeze()
         
     brev = batchwise_revenue(batch_power, batch_price)
@@ -101,6 +127,10 @@ def load_config(file_path):
         config = yaml.safe_load(file)
     return config
 
+def save_config(config, file_path):
+    with open(file_path, 'w') as file:
+        yaml.dump(config, file, default_flow_style=False, sort_keys=False)
+
 def load_model(model_path, config_path, with_loads=False):
     if with_loads:
         return load_model_with_loads(model_path, config_path)
@@ -115,8 +145,8 @@ def load_model_with_loads(model_path, config_path):
                    config['num_hidden'], 
                    config['fc_hidden_sizes'], 
                    config['rated_capacity'],
-                   config['battery_rating'],
-                   config['battery_duration'])
+                   config['storage_rating'],
+                   config['storage_duration'])
     model.load_state_dict(torch.load(model_path, weights_only=True))
     return model
 
@@ -298,3 +328,11 @@ def plot_losses(train_losses, val_losses, fname):
 
     # Saving the plot as an image file in 'plots' directory
     plt.savefig(fname + ".png")
+
+def format_num(num):
+    if num < 10:
+        return f'00{num}'
+    elif num < 100:
+        return f'0{num}'
+    else:
+        return f'{num}'

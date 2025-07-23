@@ -7,57 +7,25 @@ from model import VFNN, VFNN_2
 import pandas as pd
 from dataset import VFDataset, VF2Dataset
 from torch.utils.data import Dataset, DataLoader
+from storage import *
 
 ## CONSTANTS FOR CAPEX AND OPEX
-STORAGE_TYPES = np.array(['battery-li', 'caes', 'hydro'])
-# These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/lithium-ion-battery
-BATTERY_LI_RATINGS = np.array([1, 10, 100, 1000])
-BATTERY_LI_DURATIONS = np.array([2, 4, 6, 8, 10, 24, 100])
-# CAPEX is indexed by [rating, duration]
-BATTERY_LI_CAPEX = np.array([[1040.88, 1841.72, 2648.46, 3453.84, 4256.60, 9840.96, 39754.00],
-                  [904.44, 1618.62, 2350.83, 3070.57, 3793.15, 8815.37, 35696.05],
-                  [846.01, 1490.89, 2158.16, 2823.31, 3490.67, 8120.59, 32913.67],
-                  [787.51, 1406.11, 2036.53, 2672.06, 3311.12, 7727.58, 29945.62]])
-# OPEX is indexed by [rating, duration]
-BATTERY_LI_OPEX = np.array([[3.17, 5.47, 6.98, 8.76, 10.59, 23.30, 90.47],
-                 [2.79, 4.59, 6.37, 8.12, 9.87, 21.98, 85.98],
-                 [2.56, 4.27, 5.96, 7.63, 9.33, 20.84, 81.82],
-                 [2.37, 3.99, 5.63, 7.21, 8.79, 19.78, 77.88]])
+STORAGE_TYPES = np.array(['battery-li', 'caes', 'hydro', 'battery-la', 'battery-vrf', 'hydrogen', 'zinc', 'grav', 'thermal'])
+STORAGE_OBJECTS = np.array([BatteryLI(), CAES(), Hydro(), BatteryLA(), BatteryVRF(), Hydrogen(), Zinc(), Gravitational(), Thermal()])
 
-# These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/compressed-air-energy-storage
-CAES_RATINGS = np.array([100, 1000])
-CAES_DURATIONS = np.array([4, 10, 24, 100])
-CAES_CAPEX = np.array([[1090.24, 1125.33, 1207.53, 1637.13],
-                       [992.93, 1025.37, 1101.30, 1497.66]])
-CAES_OPEX = np.array([[17.02, 15.43, 14.88, 16.50],
-                       [9.35, 9.18, 9.13, 9.28]])
-
-# These estimates are all sourced from 2023 PNNL data at the following: https://www.pnnl.gov/projects/esgc-cost-performance/pumped-storage-hydropower
-HYDRO_RATINGS = np.array([100, 1000])
-HYDRO_DURATIONS = np.array([4, 10, 24, 100])
-HYDRO_CAPEX = np.array([[2703.26, 2786.84, 2950.29, 3415.97],
-                        [2011.66, 2019.89, 2154.67, 3179.96]])
-HYDRO_OPEX = np.array([[27.21, 27.21, 27.21, 27.21],
-                        [14.62, 14.62, 14.62, 14.62]])
-
-# indexed by storage type
-RTE = np.array([0.83, 0.55, 0.80])
-RATINGS = [BATTERY_LI_RATINGS, CAES_RATINGS, HYDRO_RATINGS]
-DURATIONS = [BATTERY_LI_DURATIONS, CAES_DURATIONS, HYDRO_DURATIONS]
-CAPEX = [BATTERY_LI_CAPEX, CAES_CAPEX, HYDRO_CAPEX]
-OPEX = [BATTERY_LI_OPEX, CAES_OPEX, HYDRO_OPEX]
-
-def get_rte(type):
+def get_storage_object(type):
     type_idx = np.where(STORAGE_TYPES == type)[0]
-    return RTE[type_idx][0]
+    return STORAGE_OBJECTS[type_idx][0]
+
+def get_rte(type, rating, duration):
+    obj = get_storage_object(type)
+    return obj.get_rte(rating, duration)
 
 def get_storage_specs(type, rating, duration):
-    type_idx = np.where(STORAGE_TYPES == type)[0][0]
-    rating_idx = np.where(RATINGS[type_idx] == rating)[0]
-    duration_idx = np.where(DURATIONS[type_idx] == duration)[0]
-    capex = CAPEX[type_idx][rating_idx, duration_idx]
-    opex = OPEX[type_idx][rating_idx, duration_idx]
-    rte = get_rte(type)
+    obj = get_storage_object(type)
+    capex = obj.get_capex(rating, duration)
+    opex = obj.get_opex(rating, duration)
+    rte = obj.get_rte(rating, duration)
     return capex, opex, rte
 
 ## UTILS FOR VF CALCULATION

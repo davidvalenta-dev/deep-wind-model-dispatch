@@ -16,7 +16,7 @@ class VFNN_2(nn.Module):
         self.storage_rating = storage_rating # should be in MW
         self.duration = storage_duration # should be in hrs
         self.capacity = storage_rating * storage_duration # should be in MWh
-        self.rte = util.get_rte(storage_type)
+        self.rte = util.get_rte(storage_type, storage_rating, storage_duration)
         
         # WIND FARM SPECS
         self.wf_rating = wf_rating

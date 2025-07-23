@@ -20,6 +20,9 @@ def validate_performance(model, dataloader, config, device, run_dir):
     
     bcove = batchwise_cove(released, price, config['epsilon'], config['storage_type'], config['storage_rating'], config['storage_duration'])
     cove = float(torch.mean(bcove).detach().cpu().numpy())
+    run_results = {'cove': cove, 'run': run_num}
+    run_results_path = os.path.join(run_dir, 'results.yaml')
+    save_config(run_results, run_results_path)
     if cove < min_cove or min_cove == -1:
         # Save new best run
         results['min_cove'] = cove

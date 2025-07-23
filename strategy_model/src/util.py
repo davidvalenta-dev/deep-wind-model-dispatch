@@ -113,6 +113,7 @@ def load_model_with_loads(model_path, config_path):
                    config['num_hidden'], 
                    config['fc_hidden_sizes'], 
                    config['rated_capacity'],
+                   config['storage_type'],
                    config['storage_rating'],
                    config['storage_duration'])
     model.load_state_dict(torch.load(model_path, weights_only=True))

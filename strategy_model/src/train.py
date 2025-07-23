@@ -40,7 +40,6 @@ def train(model, train_dataloader, val_dataloader, config, verbose, hp_searching
     hp_search_cutoff_epoch = -1
     if hp_searching:
         hp_search_cutoff_epoch = config['hp_search_cutoff_epoch']
-        print(f'Cutting training at epoch {hp_search_cutoff_epoch}')
 
     for t in range(config['epochs']):
         epoch_train_loss = []

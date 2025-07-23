@@ -11,10 +11,10 @@ import yaml
 
 def main():
     parser = argparse.ArgumentParser(description="Trainer for COVE-NN")
-    parser.add_argument("--hp_search", type=bool, default=False, help="Whether or not to search hyperparameter space (default=False)")
-    parser.add_argument('--verbose', type=bool, default=True, help="Whether or not to print losses during training (default=True)")
+    parser.add_argument("--hp_search", help="Search hyperparameter space", action="store_true")
+    parser.add_argument('--verbose', help="Print losses during training", action="store_true")
     args = parser.parse_args()
-
+    
     if args.hp_search:
         base_config = util.load_config('./configs/config.yaml')
         hp_search_config = util.load_config('./configs/hp_search_config.yaml')

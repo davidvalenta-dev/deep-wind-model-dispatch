@@ -34,8 +34,10 @@ def get_storage_specs(type, rating, duration):
 def cove(power, price, storage_type=None, storage_rating=None, storage_duration=None):
     cost = 1
     if storage_rating != None and storage_duration != None:
-        capex, opex, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
-        cost = capex + opex
+        capex_KW, opex_KW, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
+        capacity_MW = storage_rating * storage_duration
+        capacity_KW = capacity_MW * 1000
+        cost = (capex_KW + opex_KW) * capacity_KW
     return cost / revenue(power, price)
 
 def revenue(power, price, range=()):
@@ -71,8 +73,10 @@ def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage
     cost = 1
     #otherwise, compute costs
     if storage_rating != None and storage_duration != None:
-        capex, opex, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
-        cost = capex.squeeze() + opex.squeeze()
+        capex_KW, opex_KW, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
+        capacity_MW = storage_rating * storage_duration
+        capacity_KW = capacity_MW * 1000
+        cost = (capex_KW + opex_KW) * capacity_KW
         
     brev = batchwise_revenue(batch_power, batch_price)
     epsilon_tensor = torch.full_like(brev, epsilon)
@@ -159,7 +163,7 @@ def load_dataset_no_split_with_loads(csv_path, config, cf=True):
 
     return data_tensor
 
-def load_dataset(csv_path, config, with_loads=False):
+def load_dataset(csv_path, config, with_loads=False, no_shuffle=False):
     if with_loads:
         return load_dataset_with_loads(csv_path, config)
     
@@ -203,7 +207,7 @@ def load_dataset(csv_path, config, with_loads=False):
     batch_size = config['batch_size']
 
     train_dataset = VFDataset(train)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle= not no_shuffle)
 
     val_dataset = VFDataset(val)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -270,13 +274,16 @@ def load_dataset_with_loads(csv_path, config):
     return train_dataloader, val_dataloader, test_dataloader
 
 # Returns config, model, and dataset (without split) for use with model evaluation
-def load_experiment(folder_name, dataset_path, with_loads=False, cf=True):
+def load_experiment(folder_name, dataset_path, with_loads=False, cf=True, no_split=True, no_shuffle=False):
     dir = f'../test/{folder_name}'
     config_path = f'{dir}/config_{folder_name}.yaml'
     model_path = f'{dir}/model_{folder_name}.pth'
     config = load_config(config_path)
     model = load_model(model_path, config_path, with_loads=with_loads)
-    dataset = load_dataset_no_split(dataset_path, config, with_loads=with_loads, cf=cf)
+    if no_split:
+        dataset = load_dataset_no_split(dataset_path, config, with_loads=with_loads, cf=cf)
+    else:
+        dataset = load_dataset(dataset_path, config, with_loads=with_loads, no_shuffle=no_shuffle)
     return model, dataset, config
 
 def plot_losses(train_losses, val_losses, fname):

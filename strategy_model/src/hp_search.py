@@ -13,7 +13,7 @@ def validate_performance(model, dataloader, config, device, run_dir):
     results = load_config(results_path)
     min_cove = results['min_cove']
     target_length = config['hp_comparison_length']
-    (input, power, price) = get_validation_inputs(target_length, dataloader, config, device)
+    (input, power, price) = get_validation_inputs(target_length, dataloader, device)
 
     pred = model(input)
     released = pred[:,:,0]
@@ -34,7 +34,7 @@ def validate_performance(model, dataloader, config, device, run_dir):
     print('Run did not beat best model')
     return False
 
-def get_validation_inputs(target_length, dataloader, config, device):
+def get_validation_inputs(target_length, dataloader, device):
     # Gather samples from dataloader until target_length reached
     # util is configured s.t. val and test dataloaders are not shuffled, so we can simply enumerate until
     # we reach the desired length
@@ -47,9 +47,13 @@ def get_validation_inputs(target_length, dataloader, config, device):
             val_power = power
             val_price = price
         else:
-            val_input = torch.cat([val_input, input], dim=1)
-            val_power = torch.cat([val_power, power], dim=1)
-            val_price = torch.cat([val_price, price], dim=1)
+            try:
+                val_input = torch.cat([val_input, input], dim=1)
+                val_power = torch.cat([val_power, power], dim=1)
+                val_price = torch.cat([val_price, price], dim=1)
+            except:
+                # Concat fails if shape mismatch, at this point end
+                break
             if val_input.shape[1] >= target_length:
                 break
     input = val_input.to(device)

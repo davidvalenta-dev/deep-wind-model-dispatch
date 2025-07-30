@@ -25,14 +25,14 @@ class VFLoss(nn.Module):
     def step(self):
         self.epoch += 1
 
-    def forward(self, released, stored, power, price, storage_type=None, storage_rating=None, storage_duration=None):
+    def forward(self, released, stored, power, price, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None):
         B = power.shape[0]
         T = power.shape[1]
         power_avg = torch.mean(power)
         price_avg = torch.mean(price)
         assert B == price.shape[0]
         # Compute cove, which we want to minimize
-        cove = util.batchwise_cove(released, price, self.epsilon, storage_type, storage_rating, storage_duration)
+        cove = util.batchwise_cove(released, price, self.epsilon, storage_type, storage_rating, storage_duration, wf_rating)
         # Compute penalties
         baseload_penalty = (self.baseload_factor * torch.maximum(released - power_avg, torch.zeros(B,T))) ** self.baseload_degree
         storage_penalty = (self.storage_factor * torch.maximum(stored - self.storage_threshold, torch.zeros(B,T))) ** self.storage_degree

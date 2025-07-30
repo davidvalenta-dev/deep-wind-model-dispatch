@@ -12,6 +12,9 @@ from storage import *
 ## CONSTANTS FOR CAPEX AND OPEX
 STORAGE_TYPES = np.array(['battery-li', 'caes', 'hydro', 'battery-la', 'battery-vrf', 'hydrogen', 'zinc', 'grav', 'thermal'])
 STORAGE_OBJECTS = np.array([BatteryLI(), CAES(), Hydro(), BatteryLA(), BatteryVRF(), Hydrogen(), Zinc(), Gravitational(), Thermal()])
+FCR = 0.065 # from NREL Cost Of Wind Energy Review 2024: https://docs.nrel.gov/docs/fy25osti/91775.pdf
+WF_CAPEX = 1968 # $ / kW, from the above source
+WF_OPEX = 43 # $ / kW-yr, from the above source
 
 def get_storage_object(type):
     type_idx = np.where(STORAGE_TYPES == type)[0]
@@ -31,13 +34,15 @@ def get_storage_specs(type, rating, duration):
 ## UTILS FOR VF CALCULATION
 
 # These are useful for visualization purposes, the batchwise variants are useful for training
-def cove(power, price, storage_type=None, storage_rating=None, storage_duration=None):
+def cove(power, price, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None):
     cost = 1
     if storage_rating != None and storage_duration != None:
         capex_KW, opex_KW, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
-        capacity_MW = storage_rating * storage_duration
-        capacity_KW = capacity_MW * 1000
-        cost = (capex_KW + opex_KW) * capacity_KW
+        rating_KW = storage_rating * 1000
+        wf_rating_KW = wf_rating * 1000
+        wf_cost = (WF_CAPEX * wf_rating_KW * FCR) + (WF_OPEX * wf_rating_KW)
+        s_cost = (capex_KW * rating_KW * FCR) + (opex_KW * rating_KW)
+        cost = wf_cost + s_cost
     return cost / revenue(power, price)
 
 def revenue(power, price, range=()):
@@ -68,16 +73,17 @@ def batchwise_value_factor(batch_power, batch_price):
     P_avg = torch.mean(batch_price, dim=1)
     return P_wind / P_avg
 
-def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage_rating=None, storage_duration=None):
+def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None):
     #if rating and duration not give, use idealized COVE with no cost in the numerator
     cost = 1
     #otherwise, compute costs
     if storage_rating != None and storage_duration != None:
         capex_KW, opex_KW, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
-        capacity_MW = storage_rating * storage_duration
-        capacity_KW = capacity_MW * 1000
-        cost = (capex_KW + opex_KW) * capacity_KW
-        
+        rating_KW = storage_rating * 1000
+        wf_rating_KW = wf_rating * 1000
+        wf_cost = (WF_CAPEX * wf_rating_KW * FCR) + (WF_OPEX * wf_rating_KW)
+        s_cost = (capex_KW * rating_KW * FCR) + (opex_KW * rating_KW)
+        cost = wf_cost + s_cost
     brev = batchwise_revenue(batch_power, batch_price)
     epsilon_tensor = torch.full_like(brev, epsilon)
     cost_tensor = torch.full_like(brev, cost)

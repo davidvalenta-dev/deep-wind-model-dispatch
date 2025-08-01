@@ -34,14 +34,14 @@ def get_storage_specs(type, rating, duration):
 ## UTILS FOR VF CALCULATION
 
 # These are useful for visualization purposes, the batchwise variants are useful for training
-def cove(power, price, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None):
+def cove(power, price, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None, num_modules=None):
     cost = 1
     if storage_rating != None and storage_duration != None:
         capex_KW, opex_KW, rte = get_storage_specs(storage_type, storage_rating, storage_duration)
         rating_KW = storage_rating * 1000
         wf_rating_KW = wf_rating * 1000
         wf_cost = (WF_CAPEX * wf_rating_KW * FCR) + (WF_OPEX * wf_rating_KW)
-        s_cost = (capex_KW * rating_KW * FCR) + (opex_KW * rating_KW)
+        s_cost = num_modules * ((capex_KW * rating_KW * FCR) + (opex_KW * rating_KW))
         cost = wf_cost + s_cost
     return cost / revenue(power, price)
 
@@ -73,7 +73,7 @@ def batchwise_value_factor(batch_power, batch_price):
     P_avg = torch.mean(batch_price, dim=1)
     return P_wind / P_avg
 
-def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None):
+def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage_rating=None, storage_duration=None, wf_rating=None, num_modules=None):
     #if rating and duration not give, use idealized COVE with no cost in the numerator
     cost = 1
     #otherwise, compute costs
@@ -82,7 +82,7 @@ def batchwise_cove(batch_power, batch_price, epsilon, storage_type=None, storage
         rating_KW = storage_rating * 1000
         wf_rating_KW = wf_rating * 1000
         wf_cost = (WF_CAPEX * wf_rating_KW * FCR) + (WF_OPEX * wf_rating_KW)
-        s_cost = (capex_KW * rating_KW * FCR) + (opex_KW * rating_KW)
+        s_cost = num_modules * ((capex_KW * rating_KW * FCR) + (opex_KW * rating_KW))
         cost = wf_cost + s_cost
     brev = batchwise_revenue(batch_power, batch_price)
     epsilon_tensor = torch.full_like(brev, epsilon)
@@ -96,8 +96,8 @@ def normalize_price(prices, config):
     #Cap prices
     cap_idxs = prices > threshold
     prices[cap_idxs] = threshold
-    #Normalize
-    prices /= np.max(prices)
+    #Normalize s.t. mean is 1
+    prices /= np.mean(prices)
     return prices
 
 def load_config(file_path):
@@ -125,7 +125,8 @@ def load_model_with_loads(model_path, config_path):
                    config['rated_capacity'],
                    config['storage_type'],
                    config['storage_rating'],
-                   config['storage_duration'])
+                   config['storage_duration'],
+                   config['num_modules'])
     model.load_state_dict(torch.load(model_path, weights_only=True))
     return model
 
@@ -175,6 +176,8 @@ def load_dataset(csv_path, config, with_loads=False, no_shuffle=False):
     
     df = pd.read_csv(csv_path)
     power = df['power_generated']
+
+    # Normalize prices s.t. mean is 1
     prices = df['lmp']
     prices = normalize_price(prices, config)
 

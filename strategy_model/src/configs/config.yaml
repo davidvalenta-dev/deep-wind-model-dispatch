@@ -16,6 +16,7 @@ storage_duration: 2 # in hrs
 # battery-li: [2, 4, 6, 8, 10, 24, 100]
 # caes: [4, 10, 24, 100]
 # hydro: [4, 10, 24, 100]
+num_modules: 1
 
 ## MODEL HYPERPARAMETERS
 hidden_size: 32

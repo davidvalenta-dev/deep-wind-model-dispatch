@@ -6,17 +6,18 @@ import numpy as np
 
 # VFNN_2 also takes in user load as an input feature, otherwise it is the same as VFNN
 class VFNN_2(nn.Module):
-    def __init__(self, hidden_size, num_layers, fc_hidden_sizes, wf_rating, storage_type, storage_rating, storage_duration, input_size=4):
+    def __init__(self, hidden_size, num_layers, fc_hidden_sizes, wf_rating, storage_type, storage_rating, storage_duration, num_modules, input_size=4):
         super().__init__()
         self.input_size = input_size
         self.num_layers = num_layers
         self.hidden_size = hidden_size
 
         # STORAGE SPECS
-        self.storage_rating = storage_rating # should be in MW
+        self.storage_rating = storage_rating * num_modules # should be in MW
         self.duration = storage_duration # should be in hrs
         self.capacity = storage_rating * storage_duration # should be in MWh
         self.rte = util.get_rte(storage_type, storage_rating, storage_duration)
+        self.num_modules = num_modules
         
         # WIND FARM SPECS
         self.wf_rating = wf_rating

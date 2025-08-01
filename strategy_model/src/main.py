@@ -57,7 +57,8 @@ def run_train(config, verbose, hp_search=False, save_dir=None):
                    config['rated_capacity'],
                    config['storage_type'],
                    config['storage_rating'], 
-                   config['storage_duration'])
+                   config['storage_duration'],
+                   config['num_modules'])
     
     train(model, train_loader, val_loader, config, verbose, hp_search, save_dir)
     

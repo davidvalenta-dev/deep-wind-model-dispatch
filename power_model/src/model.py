@@ -27,7 +27,7 @@ class NQF_RNN(nn.Module):
         T = x.shape[1] #timesteps
         output, _ = self.lstm(x)
         assert output.shape[1] == T
-        preds = torch.zeros(size=(B,T))
+        preds = torch.zeros(size=(B,T), device=x.device)
         for t in range(T):
             quantile_pred = self.nqf(output[:,t], alphas[t])
             preds[:,t] = quantile_pred.squeeze()
@@ -64,6 +64,9 @@ class NQF_RNN_AR(nn.Module):
             output, hidden = self.lstm(lstm_input, hidden)
             
             quantile_pred = self.nqf(output.squeeze(1), alphas[t])
+            # clamp predictions to stay within [0, 1] bounds
+            quantile_pred = torch.clamp(quantile_pred, 0, 1)
+
             preds.append(quantile_pred)
             prev_pred = quantile_pred
 

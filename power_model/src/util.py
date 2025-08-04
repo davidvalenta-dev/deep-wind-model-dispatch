@@ -11,6 +11,29 @@ from torch.utils.data import DataLoader
 def random_quantiles(size, low, high):
     return np.random.uniform(low=low, high=high, size=size)
 
+def reflect(x, low, high):
+    if x < low:
+        return low + (low - x)
+    elif x > high:
+        return high - (x - high)
+    else:
+        return x
+
+def random_quantiles_brownian(size, low, high, smoothing=0.01, drift=0.0001, start=None):
+    start = np.random.uniform(low=low, high=high, size=1)[0]
+
+    # generate random walk
+    steps = np.random.normal(loc=0, scale=1, size=size)
+    steps_smoothed = smoothing * steps
+    walk = np.cumsum(steps_smoothed) + start
+
+    # if walk goes out of bounds, reflect it back into range, also add drift to 0.5
+    for i in range(1, len(steps)):
+        walk[i] = walk[i - 1] + steps_smoothed[i] + drift * (0.5 - walk[i - 1])
+        walk[i] = reflect(walk[i], low, high)
+
+    return walk
+
 ## MISC. UTILS 
 def load_config(file_path):
     with open(file_path, 'r') as file:
@@ -28,8 +51,8 @@ def load_model(model_path, config_path, use_autoregressive=False):
 
 def load_dataset_no_split(csv_path):
     df = pd.read_csv(csv_path)
-    speed = torch.tensor(df['speed_HRRR'], dtype=torch.float)
-    power = torch.tensor(df['ercot_power'], dtype=torch.float)
+    speed = torch.tensor(df['speed'], dtype=torch.float)
+    power = torch.tensor(df['power'], dtype=torch.float)
 
     # Normalize power
     power /= torch.max(power)
@@ -42,8 +65,8 @@ def load_dataset_no_split(csv_path):
 
 def load_dataset(csv_path, config):
     df = pd.read_csv(csv_path)
-    speed = df['speed_HRRR']
-    power = df['ercot_power']
+    speed = df['speed']
+    power = df['power']
 
     # Normalize power
     power /= np.max(power)

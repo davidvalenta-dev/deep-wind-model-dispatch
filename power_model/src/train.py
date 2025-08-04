@@ -9,6 +9,7 @@ import shutil
 
 def train(model, train_dataloader, val_dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
     criterion = CRPSLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     early_stopper = EarlyStopper(config['patience'], config['early_stop_epoch'])
@@ -38,14 +39,13 @@ def train(model, train_dataloader, val_dataloader, config):
         model.train()
         epoch_train_loss = []
         for i, (speed, power) in enumerate(train_dataloader):
-            if speed.shape[0] != B:
-                continue
+            current_batch_size = speed.shape[0]
             optimizer.zero_grad()
 
             speed = speed.to(device)
             power = power.to(device)
 
-            quantile_preds = torch.empty(size=(B, T, len(quantile_levels)))
+            quantile_preds = torch.empty(size=(current_batch_size, T, len(quantile_levels)), device=device)
             for m in range(len(quantile_levels)):
                 quantile_lvl = quantile_levels[m].repeat(T)
                 pred = model(speed, quantile_lvl, targets=power)
@@ -86,6 +86,7 @@ def train(model, train_dataloader, val_dataloader, config):
 
 def validate(model, dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
     criterion = CRPSLoss()
 
     val_loss = []
@@ -95,12 +96,11 @@ def validate(model, dataloader, config):
     T = config['seq_length']
 
     for i, (speed, power) in enumerate(dataloader):
-        if speed.shape[0] != B:
-            continue
+        current_batch_size = speed.shape[0]
         speed = speed.to(device)
         power = power.to(device)
 
-        quantile_preds = torch.empty(size=(B, T, len(quantile_levels)))
+        quantile_preds = torch.empty(size=(current_batch_size, T, len(quantile_levels)), device=device)
         for m in range(len(quantile_levels)):
             quantile_lvl = quantile_levels[m].repeat(T)
             pred = model(speed, quantile_lvl)
@@ -108,6 +108,10 @@ def validate(model, dataloader, config):
         loss = criterion(quantile_levels, quantile_preds, power)
         val_loss.append(loss.detach().cpu().numpy())
 
+    if len(val_loss) == 0:
+        print("Warning: No validation batches processed")
+        return float('inf')
+    
     return np.mean(val_loss)
 
 def save_train_metrics(train_loss, val_loss, model_folder, config, unique_code_str):

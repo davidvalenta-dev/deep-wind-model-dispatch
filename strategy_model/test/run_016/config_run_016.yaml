@@ -1,9 +1,10 @@
 seq_length: 168
 rated_capacity: 249
 price_threshold: 1000
-storage_type: battery-li
-storage_rating: 1000
-storage_duration: 2
+storage_type: caes
+storage_rating: 100
+storage_duration: 4 #24 originally
+num_modules: 1
 hidden_size: 16
 num_hidden: 3
 fc_hidden_sizes:

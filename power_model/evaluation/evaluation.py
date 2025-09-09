@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import jensenshannon
+import matplotlib.ticker as mtick
 
 
 class Metrics():
@@ -16,9 +17,6 @@ class Metrics():
     def rmse(self):
         return float(np.sqrt(np.mean((self.npower - self.npreds) ** 2)))
 
-    def bias(self):
-        return float(np.mean(self.npreds - self.npower))
-
     def cross_correlation(self):
         return float(np.corrcoef(self.npower, self.npreds)[0, 1])
 
@@ -30,6 +28,9 @@ class Metrics():
         js_div = jensenshannon(H_true_norm.flatten(), H_pred_norm.flatten())
         similarity = 1 - js_div
         return float(similarity)
+    
+    def bias(self):
+        return float(np.mean(self.npreds - self.npower))
     
     def PLF5(self, v, P, L, A, B, C):
         return L + (P - L) / (1 + (v / B) ** A) ** C
@@ -51,9 +52,9 @@ class Metrics():
     def print_metrics(self):
         print(f"{self.name} Metrics:")
         print(f"RMSE: {self.rmse()}")
-        print(f"Bias: {self.bias()}")
         print(f"Cross Correlation: {self.cross_correlation()}")
         print(f"Similarity: {self.similarity()}")
+        print(f"Bias: {self.bias()}")
         print(f"RMS Steady: {self.rms_theoretical()[0]}")
         print(f"RMS Loss: {self.rms_theoretical()[1]}")
         print(f"RMS True: {self.rms()[0]}")
@@ -63,9 +64,9 @@ class Metrics():
     def get_metrics(self):
         return {
             'RMSE': self.rmse(),
-            'Bias': self.bias(),
             'Cross Correlation': self.cross_correlation(),
             'Similarity': self.similarity(),
+            'Bias': self.bias(),
             'RMS Steady': self.rms_theoretical()[0],
             'RMS Loss': self.rms_theoretical()[1],
             'RMS True': self.rms()[0],
@@ -94,14 +95,24 @@ class Plot():
             leg.set_alpha(0.5)
         plt.show()
 
-    def time_series(self, figsize=(6, 5)):
+    def time_series(self, figsize=(7, 5)):
         plt.figure(figsize=figsize)
-        plt.plot(self.power[:200].reset_index(drop=True), label='Historical')
-        plt.plot(self.preds[:200].reset_index(drop=True), label='Predicted')
+        # plt.figure(figsize=figsize, dpi=200)
+
+        plt.plot(self.power[:200].reset_index(drop=True), label='Historical', linewidth=2)
+        plt.plot(self.preds[:200].reset_index(drop=True), label='Predicted', linewidth=2)
+        
+        # plt.xlabel('Time (Hours)', fontsize=28)
+        # plt.ylabel('Power (MW)', fontsize=28)
+        # plt.xticks(fontsize=18)
+        # plt.yticks(fontsize=18)
+        # plt.legend(fontsize=22)
+
         plt.xlabel('Time (Hours)')
         plt.ylabel('Power (MW)')
         plt.title(f'{self.name} Power Time Series')
         plt.legend()
+
         plt.tight_layout()
         plt.show()
 
@@ -153,14 +164,26 @@ class Plot():
         # difference
         diff = vals_pred - vals_true
 
+
         fig, ax = plt.subplots(figsize=figsize)
         im = ax.imshow(diff, origin='lower', cmap='bwr', vmin=-np.max(np.abs(diff)), vmax=np.max(np.abs(diff)))
-        ax.set_title(f"{self.name} Density Difference (Match: {match_percentage}%)", fontsize=14)
         ax.set_xlabel("Speed Bin")
         ax.set_ylabel("Power Bin")
-
+        ax.tick_params(axis='both', which='major')
+        ax.set_title(f"{self.name} Density Difference (Match: {match_percentage}%)")
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("Density Difference (Predicted - Historical)")
+        cbar.set_label("Density Diff. (Pred - Hist)")
+        cbar.ax.tick_params()
+
+        # fig, ax = plt.subplots(figsize=figsize, dpi=200)
+        # im = ax.imshow(diff, origin='lower', cmap='bwr', vmin=-np.max(np.abs(diff)), vmax=np.max(np.abs(diff)))
+        # ax.set_xlabel("Speed Bin", fontsize=28)
+        # ax.set_ylabel("Power Bin", fontsize=28)
+        # ax.tick_params(axis='both', which='major', labelsize=18)
+        # cbar = fig.colorbar(im, ax=ax)
+        # cbar.set_label("Density Diff. (Pred - Hist)", fontsize=24)
+        # cbar.ax.tick_params(labelsize=18)
+
         plt.tight_layout()
         plt.show()
 
@@ -179,6 +202,23 @@ class Plot():
         plt.legend()
         plt.grid(axis='x')
         plt.show()
+    
+    def avg_powers_percentage(self, years=10, start_year=2014, figsize=(10, 5)):
+        power_mean = np.mean(np.array_split(self.power, years), axis=1)
+        pred_mean = np.mean(np.array_split(self.preds, years), axis=1)
+
+        plt.figure(figsize=figsize)
+        ax = plt.gca()
+        plt.bar(np.arange(years), (pred_mean - power_mean) / power_mean, label='(Pred - Hist) / Hist', edgecolor='black', zorder=3)
+        plt.xlabel('Year')
+        plt.xticks(ticks=np.arange(0, years), labels=[str(start_year + i) for i in range(years)])
+        plt.ylabel('Percentage Power Difference')
+        plt.title(f'{self.name} Average Power Percentage Difference ({years}-Year Means)')
+        plt.legend()
+        plt.grid(axis='y', alpha=0.5, zorder=0)
+        plt.axhline(0, color='black', linewidth=0.8)
+        ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
+        plt.show()
 
     def plot_all(self):
         self.power_curve()
@@ -186,6 +226,7 @@ class Plot():
         self.power_density()
         self.density_difference()
         self.avg_powers()
+        self.avg_powers_percentage()
 
 
 if __name__ == "__main__":

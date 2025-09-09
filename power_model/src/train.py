@@ -3,14 +3,14 @@ import numpy as np
 import uuid
 import csv
 import os
-from loss import CRPSLoss
+from loss import CRPSLoss, CRPSLossBias
 from util import plot_losses
 import shutil
 
 def train(model, train_dataloader, val_dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    criterion = CRPSLoss()
+    criterion = CRPSLossBias()
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     early_stopper = EarlyStopper(config['patience'], config['early_stop_epoch'])
 
@@ -35,7 +35,15 @@ def train(model, train_dataloader, val_dataloader, config):
     min_val_loss = float("inf")
     train_loss = []
     val_loss = []
+
+    init_tf_prob = 1.0
+    final_tf_prob = 0.5
+    total_epochs = config['epochs']
+
     for t in range(config['epochs']):
+        # decay teacher forcing
+        tf_prob = final_tf_prob + (init_tf_prob - final_tf_prob) * (1 - t / total_epochs)
+
         model.train()
         epoch_train_loss = []
         for i, (speed, power) in enumerate(train_dataloader):
@@ -48,14 +56,14 @@ def train(model, train_dataloader, val_dataloader, config):
             quantile_preds = torch.empty(size=(current_batch_size, T, len(quantile_levels)), device=device)
             for m in range(len(quantile_levels)):
                 quantile_lvl = quantile_levels[m].repeat(T)
-                pred = model(speed, quantile_lvl, targets=power)
+                pred = model(speed, quantile_lvl, targets=power, teacher_forcing_prob=tf_prob)
                 quantile_preds[:,:,m] = pred.squeeze()
 
-            loss = criterion(quantile_levels, quantile_preds, power)
+            loss, bias_loss = criterion(quantile_levels, quantile_preds, power)
 
             epoch_train_loss.append(loss.detach().cpu().numpy())
             if i % 10 == 0:
-                print(f'Batch {i} loss: {loss.detach().cpu().numpy()}')
+                print(f'Batch {i} loss: {loss.detach().cpu().numpy()}, bias loss: {bias_loss.detach().cpu().numpy()}')
 
             loss.backward()
             optimizer.step()
@@ -87,7 +95,7 @@ def train(model, train_dataloader, val_dataloader, config):
 def validate(model, dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    criterion = CRPSLoss()
+    criterion = CRPSLossBias()
 
     val_loss = []
 
@@ -105,7 +113,7 @@ def validate(model, dataloader, config):
             quantile_lvl = quantile_levels[m].repeat(T)
             pred = model(speed, quantile_lvl)
             quantile_preds[:,:,m] = pred.squeeze()
-        loss = criterion(quantile_levels, quantile_preds, power)
+        loss, _ = criterion(quantile_levels, quantile_preds, power)
         val_loss.append(loss.detach().cpu().numpy())
 
     if len(val_loss) == 0:

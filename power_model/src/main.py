@@ -6,9 +6,8 @@ from train import train, validate
 
 def main():
     config = util.load_config('./configs/config.yaml')
-    # train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_2018-21_withloads_power.csv', config)
-    # train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_14-23.csv', config)
-    train_loader, val_loader, test_loader = load_dataset('../probabilistic/wevalidate_data/EIA_930.csv', config)
+    train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_14-23.csv', config)
+    # train_loader, val_loader, test_loader = load_dataset('../probabilistic/wevalidate_data/EIA_930.csv', config)
 
     # Test entry in data loader as sanity check
     (speed, power) = train_loader.dataset[0]

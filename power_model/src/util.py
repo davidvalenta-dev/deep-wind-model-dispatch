@@ -91,13 +91,21 @@ def load_dataset(csv_path, config):
     train_frac, val_frac = config['train_percent'], config['val_percent']
     train_size = int(train_frac * len_data)
     val_size = int(val_frac * len_data)
-
     torch.manual_seed(0)
     indices = torch.randperm(len_data)
-
     train_indices = indices[:train_size]
     val_indices = indices[train_size:train_size + val_size]
     test_indices = indices[train_size + val_size:]
+
+
+    # train_end = 56020 // seq_length
+    # val_end = 64780 // seq_length
+    # # train_end = 3087 // seq_length
+    # # val_end = 3528 // seq_length
+    # train_indices = torch.arange(0, train_end)
+    # val_indices = torch.arange(train_end, val_end)
+    # test_indices = torch.arange(val_end, len_data)
+
 
     assert set(train_indices).isdisjoint(set(val_indices)) and set(train_indices).isdisjoint(set(test_indices)) and set(val_indices).isdisjoint(set(test_indices))
 

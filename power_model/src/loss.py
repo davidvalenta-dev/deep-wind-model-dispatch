@@ -53,6 +53,27 @@ class CRPSLoss(nn.Module):
     
         return pinball  # Shape: [batch_size, timesteps, num_quantiles]
 
+# CRPS loss with bias penalty
+class CRPSLossBias(nn.Module):
+    def __init__(self, bias_weight=100.0):
+        super(CRPSLossBias, self).__init__()
+        self.bias_weight = bias_weight
+        self.crps_loss = CRPSLoss()
+
+    def forward(self, quantile_levels, quantile_preds, target):
+        loss_crps = self.crps_loss(quantile_levels, quantile_preds, target)
+
+        median_idx = torch.argmin(torch.abs(quantile_levels - 0.5))
+        median_preds = quantile_preds[:, :, median_idx]  # [batch_size, timesteps]
+        
+        pred_mean = median_preds.mean()
+        target_mean = target.mean()
+        bias_loss = (pred_mean - target_mean)**2 * self.bias_weight
+
+        # print(f"CRPS Loss: {loss_crps.item()}, Bias Loss: {bias_loss}")
+        return loss_crps + bias_loss, bias_loss
+
+
 class QuantileLoss(nn.Module):
     """
     QuantileLoss

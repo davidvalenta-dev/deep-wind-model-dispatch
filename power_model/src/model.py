@@ -43,7 +43,7 @@ class NQF_RNN_AR(nn.Module):
         self.lstm = nn.LSTM(input_size+1, hidden_size, num_layers=num_layers, batch_first=True)
         self.nqf = NQF(hidden_size, nqf_hidden_sizes)
 
-    def forward(self, x, alphas, targets=None):
+    def forward(self, x, alphas, targets=None, teacher_forcing_prob=1.0):
         x = x.unsqueeze(-1)
         B = x.shape[0] #batch size
         T = x.shape[1] #timesteps
@@ -53,7 +53,7 @@ class NQF_RNN_AR(nn.Module):
         
         preds = []
         for t in range(T):
-            if self.training and targets is not None:
+            if self.training and targets is not None and np.random.rand() < teacher_forcing_prob:
                 # teacher forcing during training
                 power_input = targets[:, t-1:t] if t > 0 else prev_pred
             else:
@@ -92,10 +92,19 @@ class PLinear(nn.Module):
 class NQF(nn.Module):
     def __init__(self, input_size, hidden_sizes, output_size=1):
         super(NQF, self).__init__()
-        self.fc1 = PLinear(input_size + 1, hidden_sizes[0])
-        self.fc2 = PLinear(hidden_sizes[0], hidden_sizes[1])
-        self.fc3 = PLinear(hidden_sizes[1], output_size)
+        self.fc1 = nn.Linear(input_size + 1, hidden_sizes[0])
+        self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.fc3 = nn.Linear(hidden_sizes[1], output_size)
         self.tanh = nn.Tanh()
+        self.init_weights()
+
+    def init_weights(self):
+        for layer in [self.fc1, self.fc2]:
+            nn.init.xavier_uniform_(layer.weight, gain=0.5)
+            nn.init.constant_(layer.bias, 0.0)
+        
+        nn.init.xavier_uniform_(self.fc3.weight, gain=0.1)
+        nn.init.constant_(self.fc3.bias, 0.0)
 
     def forward(self, x, alpha):
         #x has shape [batch size, input size]

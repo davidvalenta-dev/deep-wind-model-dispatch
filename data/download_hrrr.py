@@ -53,7 +53,7 @@ SAVE_EVERY = 1000 # save backup csv every 1000 rows
 if __name__ == "__main__":
     original_stdout = sys.stdout
 
-    num = 3
+    num = 1
     i = 0
 
     # save print logs
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             
             if i % SAVE_EVERY == 0:
                 df.to_csv(f'data/processed/hrrr/hrrr_speeds_{num}_backup.csv', index=False)
-                print(f"Saved {i} rows to CSV")
+                print(f"Saved {i} rows")
 
             date += timedelta(hours=1)
 

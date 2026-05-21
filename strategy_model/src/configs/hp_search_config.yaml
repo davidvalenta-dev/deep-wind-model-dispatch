@@ -1,0 +1,23 @@
+## ALL CONFIG PARAMETERS NOT INCLUDED HERE ARE SOURCED FROM config.yaml
+## ANY CONFIG PARAMETERS INCLUDED HERE OVERRIDE THOSE PROVIDED IN config.yaml
+## ANY CONFIG PARAMETERS INCLUDED HERE ARE SEARCHED OVER
+
+## HYPER-PARAMETER SEARCHING CONVENTIONS:
+# When a hyperparameter is an array containing multiple elements, 
+# one of the elements is uniformly randomly selected
+
+# When a hyperparameter is an array containing exactly one element that is a string formatted as follows:
+# 'rand(x, y)', the hp is uniformly randomly selected between [x, y]
+
+## LOSS HYPERPARAMETERS
+baseload_factor: ['rand(0, 3)']
+baseload_degree: ['rand(0, 3)']
+
+storage_factor: ['rand(0, 3)']
+storage_degree: ['rand(0, 4)']
+storage_threshold: ['rand(0, 800)']
+
+price_factor: ['rand(0, 5)']
+price_degree: ['rand(0, 5)']
+
+adaptive_degree: ['rand(0.25, 0.125)']

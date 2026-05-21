@@ -1,14 +1,26 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import util
+import numpy as np
 
 # VFNN_2 also takes in user load as an input feature, otherwise it is the same as VFNN
 class VFNN_2(nn.Module):
-    def __init__(self, hidden_size, num_layers, fc_hidden_sizes, input_size=4):
+    def __init__(self, hidden_size, num_layers, fc_hidden_sizes, wf_rating, storage_type, storage_rating, storage_duration, num_modules, input_size=4):
         super().__init__()
         self.input_size = input_size
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+
+        # STORAGE SPECS
+        self.storage_rating = storage_rating * num_modules # should be in MW
+        self.duration = storage_duration # should be in hrs
+        self.capacity = storage_rating * storage_duration # should be in MWh
+        self.rte = util.get_rte(storage_type, storage_rating, storage_duration)
+        self.num_modules = num_modules
+        
+        # WIND FARM SPECS
+        self.wf_rating = wf_rating
 
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers=num_layers, batch_first=True)
 
@@ -33,13 +45,17 @@ class VFNN_2(nn.Module):
         torch.nn.init.constant_(fc1.linear.bias, 0)
         torch.nn.init.constant_(fc2.linear.bias, 0)
         torch.nn.init.constant_(fc3.linear.bias, 0)
+        
+        dropout = nn.Dropout(p=0.3)
 
         # tanh, alongside PLinear, ensures monotonicity
         self.nn = nn.Sequential(
             fc1,
             nn.ReLU(),
+            # dropout,
             fc2,
             nn.ReLU(),
+            # dropout,
             fc3,
             nn.ReLU()
         )
@@ -52,19 +68,39 @@ class VFNN_2(nn.Module):
         s = torch.tensor(0, dtype=torch.float32)
         s = torch.Tensor.repeat(s, B).unsqueeze(1)
         input = torch.cat([input, s], dim=1)
-        preds = torch.zeros(B, T, 2)
+        # preds contains [Batch size, time steps, 5] where the last dimension 
+        # contains the following values: [released power, stored power, lost power, power direct gen, power regen]
+        preds = torch.zeros(B, T, 5)
+        lost = torch.zeros((B,1))
         for t in range(T):
             out, hidden = self.lstm(input)
-            r = self.nn(out)
+            r = self.nn(out) * self.wf_rating
             g = input[:,0]
-            # Ensure availability condition not violated
+            # Ensure availability condition not violated (cannot release energy > stored + generated)
             r = torch.minimum(torch.reshape(g, (B,1)) + torch.reshape(s, (B,1)), r)
-            preds[:, t, :] = torch.cat([r, s], dim=-1)
-            # Update stored for next time step
-            s += torch.reshape(g, (B,1)) - torch.reshape(r, (B,1))
-            # print(f'in_{t} = {input}')
-            # print(f'out_{t} = {out}')
-            # print(f'r_{t} = {r}')
+            g_regen = torch.maximum(r - torch.reshape(g, (B,1)), torch.zeros((B,1)))
+            # Update lost power with any power that could have been stored but was not due to the storage rating
+            lost += torch.maximum(torch.zeros((B,1)), g_regen - torch.full_like(g_regen, self.storage_rating))
+            # Ensure power regenerated (discharged) from storage does not exceed storage power rating
+            g_regen = torch.minimum(g_regen, torch.full_like(g_regen, self.storage_rating))
+            g_direct = torch.maximum(r - g_regen, torch.zeros((B,1)))
+            assert (g_regen + g_direct == r).all()
+            # Multiply energy discharged by storage by round trip efficiency (RTE) to accurately model physical losses
+            lost += g_regen * (1 - self.rte)
+            r_curtailed = g_direct + (g_regen * self.rte)
+            preds[:, t, :] = torch.cat([r_curtailed, s, lost, g_direct, g_regen * self.rte], dim=-1)
+            # Reset lost to zero
+            lost = torch.zeros((B,1))
+            # Update stored energy for next time step
+            charge = torch.reshape(g, (B,1)) - torch.reshape(r, (B,1))
+            # Ensure charge does not exceed storage power rating
+            s += torch.minimum(charge, torch.full_like(charge, self.storage_rating))
+            # Ensure storage is non-negative
+            s = torch.maximum(s, torch.zeros((B,1)))
+            # If storage exceeds capacity, add any power that will be capped to lost
+            lost += torch.maximum(torch.zeros((B,1)), s - torch.full_like(s, self.capacity))
+            # Ensure storage does not exceed storage capacity
+            s = torch.minimum(s, torch.full_like(s, self.capacity))
             # If there are more inputs left, append this prediction to next input 
             if t < T - 1:
                 input = torch.cat([x[:,t+1,:], s], dim=1)

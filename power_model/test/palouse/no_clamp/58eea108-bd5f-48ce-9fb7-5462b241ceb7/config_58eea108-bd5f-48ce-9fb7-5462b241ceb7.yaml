@@ -1,0 +1,26 @@
+## DATA PARAMETERS
+seq_length: 168        # 168 = 24 * 7,   744 = 24 * 31
+
+## MODEL HYPERPARAMETERS
+hidden_size: 32
+num_hidden: 3
+nqf_hidden_sizes: [32, 16]
+
+## TRAINING PARAMETERS
+learning_rate: 0.001
+batch_size: 6
+epochs: 64
+
+# Contains quantiles to learn to predict, these values are the same as those used in the NQF-RNN paper
+quantile_levels: [0.01, 0.05, 0.1, 0.5, 0.9, 0.99]
+
+# Early stopping
+early_stop_epoch: 12 # The first epoch it starts checking for early stopping
+patience: 4          # If {patience} epochs have passed and the validation loss hasnt decreased, then stop
+
+# Train-validation-test split
+train_percent: 0.7
+val_percent: 0.2
+test_percent: 0.1
+
+# EIA 930 dataset

@@ -1,5 +1,5 @@
 ## DATA PARAMETERS
-seq_length: 168        # 168 = 24 * 7,   720 = 24 * 30
+seq_length: 168        # 168 = 24 * 7,   744 = 24 * 31
 
 ## MODEL HYPERPARAMETERS
 hidden_size: 32
@@ -16,7 +16,7 @@ quantile_levels: [0.01, 0.05, 0.1, 0.5, 0.9, 0.99]
 
 # Early stopping
 early_stop_epoch: 12 # The first epoch it starts checking for early stopping
-patience: 4          # If {patience} epochs have passed and the validation loss hasnt decreased, then stop
+patience: 3          # If {patience} epochs have passed and the validation loss hasnt decreased, then stop
 
 # Train-validation-test split
 train_percent: 0.7

@@ -3,7 +3,7 @@ import yaml
 import matplotlib.pyplot as plt
 import torch
 import os
-from model import NQF_RNN
+from model import NQF_RNN, NQF_RNN_AR
 import pandas as pd
 from dataset import WindDataset
 from torch.utils.data import DataLoader
@@ -11,16 +11,42 @@ from torch.utils.data import DataLoader
 def random_quantiles(size, low, high):
     return np.random.uniform(low=low, high=high, size=size)
 
+def reflect(x, low, high):
+    if x < low:
+        return low + (low - x)
+    elif x > high:
+        return high - (x - high)
+    else:
+        return x
+
+def random_quantiles_brownian(size, low, high, smoothing=0.01, drift=0.0001, start=None):
+    start = np.random.uniform(low=low, high=high, size=1)[0]
+
+    # generate random walk
+    steps = np.random.normal(loc=0, scale=1, size=size)
+    steps_smoothed = smoothing * steps
+    walk = np.cumsum(steps_smoothed) + start
+
+    # if walk goes out of bounds, reflect it back into range, also add drift to 0.5
+    for i in range(1, len(steps)):
+        walk[i] = walk[i - 1] + steps_smoothed[i] + drift * (0.5 - walk[i - 1])
+        walk[i] = reflect(walk[i], low, high)
+
+    return walk
+
 ## MISC. UTILS 
 def load_config(file_path):
     with open(file_path, 'r') as file:
         config = yaml.safe_load(file)
     return config
 
-def load_model(model_path, config_path):
+def load_model(model_path, config_path, use_autoregressive=False):
     config = load_config(config_path)
-    model = NQF_RNN(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
-    model.load_state_dict(torch.load(model_path, weights_only=True))
+    if use_autoregressive:
+        model = NQF_RNN_AR(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
+    else:
+        model = NQF_RNN(config['hidden_size'], config['num_hidden'], config['nqf_hidden_sizes'])
+    model.load_state_dict(torch.load(model_path))
     return model
 
 def load_dataset_no_split(csv_path):
@@ -31,9 +57,9 @@ def load_dataset_no_split(csv_path):
     # Normalize power
     power /= torch.max(power)
 
-    # Shift to account for time zone difference
-    speed = speed[6:]
-    power = power[:-6]
+    # # Shift to account for time zone difference
+    # speed = speed[6:]
+    # power = power[:-6]
 
     return speed, power
 
@@ -45,9 +71,9 @@ def load_dataset(csv_path, config):
     # Normalize power
     power /= np.max(power)
 
-    # Shift to account for time zone difference
-    speed = speed[6:]
-    power = power[:-6]
+    # # Shift to account for time zone difference
+    # speed = speed[6:]
+    # power = power[:-6]
 
     # Chunk data into sequences of length config['seq_length']
     seq_length = config['seq_length']
@@ -65,13 +91,21 @@ def load_dataset(csv_path, config):
     train_frac, val_frac = config['train_percent'], config['val_percent']
     train_size = int(train_frac * len_data)
     val_size = int(val_frac * len_data)
-
     torch.manual_seed(0)
     indices = torch.randperm(len_data)
-
     train_indices = indices[:train_size]
     val_indices = indices[train_size:train_size + val_size]
     test_indices = indices[train_size + val_size:]
+
+
+    # train_end = 56020 // seq_length
+    # val_end = 64780 // seq_length
+    # # train_end = 3087 // seq_length
+    # # val_end = 3528 // seq_length
+    # train_indices = torch.arange(0, train_end)
+    # val_indices = torch.arange(train_end, val_end)
+    # test_indices = torch.arange(val_end, len_data)
+
 
     assert set(train_indices).isdisjoint(set(val_indices)) and set(train_indices).isdisjoint(set(test_indices)) and set(val_indices).isdisjoint(set(test_indices))
 
@@ -94,12 +128,12 @@ def load_dataset(csv_path, config):
     return train_dataloader, val_dataloader, test_dataloader
 
 # Returns config, model, and dataset (without split) for use with model evaluation
-def load_experiment(folder_name, dataset_path):
+def load_experiment(folder_name, dataset_path, use_autoregressive=False):
     dir = f'../test/{folder_name}'
     config_path = f'{dir}/config_{folder_name}.yaml'
     model_path = f'{dir}/model_{folder_name}.pth'
     config = load_config(config_path)
-    model = load_model(model_path, config_path)
+    model = load_model(model_path, config_path, use_autoregressive)
     dataset = load_dataset_no_split(dataset_path)
     return model, dataset, config
 

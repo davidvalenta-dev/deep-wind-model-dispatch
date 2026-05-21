@@ -32,7 +32,7 @@ class VFLoss(nn.Module):
         price_avg = torch.mean(price)
         assert B == price.shape[0]
         # Compute cove, which we want to minimize
-        cove = util.batchwise_cove(released, price, self.epsilon, storage_type, storage_rating, storage_duration, wf_rating)
+        cove = util.batchwise_cove(released, price, self.epsilon)
         # Compute penalties
         baseload_penalty = (self.baseload_factor * torch.maximum(released - power_avg, torch.zeros(B,T))) ** self.baseload_degree
         storage_penalty = (self.storage_factor * torch.maximum(stored - self.storage_threshold, torch.zeros(B,T))) ** self.storage_degree

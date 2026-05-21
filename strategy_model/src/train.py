@@ -11,9 +11,9 @@ import shutil
 def train(model, train_dataloader, val_dataloader, config, verbose, hp_searching=False, save_dir=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = VFLoss(config)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'], weight_decay=1e-4)
     early_stopper = EarlyStopper(config['patience'], config['early_stop_epoch'])
-    
+
     unique_code_str = uuid.uuid4()
     
     if save_dir == None:

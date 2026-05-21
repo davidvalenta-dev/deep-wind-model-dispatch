@@ -2,7 +2,7 @@ seq_length: 168
 rated_capacity: 249
 price_threshold: 1000
 storage_type: caes
-storage_rating: 100
+storage_rating: 100 #100 originally
 storage_duration: 4 #24 originally
 num_modules: 1
 hidden_size: 16

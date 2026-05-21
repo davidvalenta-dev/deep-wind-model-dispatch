@@ -39,7 +39,7 @@ def main():
     run_train(config, args.verbose)
 
 def run_train(config, verbose, hp_search=False, save_dir=None):
-    train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_1980-2023_withloads.csv', config, with_loads=True)
+    train_loader, val_loader, test_loader = load_dataset('../../data/processed/dataset_1980-2023_withloads_fix.csv', config, with_loads=True, cf=True)
     # Test entry in data loader as sanity check
     (data, power, price) = train_loader.dataset[0]
     if(verbose):

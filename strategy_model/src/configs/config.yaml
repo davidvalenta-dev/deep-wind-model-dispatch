@@ -19,9 +19,9 @@ storage_duration: 2 # in hrs
 num_modules: 1
 
 ## MODEL HYPERPARAMETERS
-hidden_size: 32
+hidden_size: 16
 num_hidden: 3
-fc_hidden_sizes: [32, 16]
+fc_hidden_sizes: [128, 64]
 
 ## LOSS HYPERPARAMETERS
 # This is a small value that prevents the COVE computation from causing a division by 0
@@ -33,25 +33,25 @@ epsilon: 0.00001
 
 # Promotes baseload behavior by penalizing model for releasing power 
 # less than the current time-windows (seq_length) power average
-baseload_factor: 4
-baseload_degree: 3.5
+baseload_factor: 2.70240603090807
+baseload_degree: 2.5460566625956487
 
 # Mitigates massive storage by penalizing model as its total energy stored increases
-storage_factor: 1
-storage_degree: 3
-storage_threshold: 1000
+storage_factor: 1.8067351579777913
+storage_degree: 3.287969084321487
+storage_threshold: 1101.3281191401945
 
 # Enforces behaviors above more or less strongly depending on whether or not price is above or below average
-price_factor: 4
-price_degree: 3
+price_factor: 3.3821570281358655
+price_degree: 4.602214863665654
 
 # Adaptively scales effect of penalties as epochs trained increase, only applies after adaptive epoch is reached
 adaptive_factor: 1
-adaptive_degree: 0.25
+adaptive_degree: 0.1522919535041743
 adaptive_epoch: 8
 
 ## TRAINING PARAMETERS
-learning_rate: 0.0001
+learning_rate: 0.00001
 batch_size: 8
 epochs: 32
 

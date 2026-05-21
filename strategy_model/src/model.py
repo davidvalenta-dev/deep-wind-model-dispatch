@@ -45,13 +45,17 @@ class VFNN_2(nn.Module):
         torch.nn.init.constant_(fc1.linear.bias, 0)
         torch.nn.init.constant_(fc2.linear.bias, 0)
         torch.nn.init.constant_(fc3.linear.bias, 0)
+        
+        dropout = nn.Dropout(p=0.3)
 
         # tanh, alongside PLinear, ensures monotonicity
         self.nn = nn.Sequential(
             fc1,
             nn.ReLU(),
+            # dropout,
             fc2,
             nn.ReLU(),
+            # dropout,
             fc3,
             nn.ReLU()
         )
@@ -64,9 +68,9 @@ class VFNN_2(nn.Module):
         s = torch.tensor(0, dtype=torch.float32)
         s = torch.Tensor.repeat(s, B).unsqueeze(1)
         input = torch.cat([input, s], dim=1)
-        # preds contains [Batch size, time steps, 3] where the last dimension 
-        # contains the following values: [released power, stored power, lost power]
-        preds = torch.zeros(B, T, 3)
+        # preds contains [Batch size, time steps, 5] where the last dimension 
+        # contains the following values: [released power, stored power, lost power, power direct gen, power regen]
+        preds = torch.zeros(B, T, 5)
         lost = torch.zeros((B,1))
         for t in range(T):
             out, hidden = self.lstm(input)
@@ -84,7 +88,7 @@ class VFNN_2(nn.Module):
             # Multiply energy discharged by storage by round trip efficiency (RTE) to accurately model physical losses
             lost += g_regen * (1 - self.rte)
             r_curtailed = g_direct + (g_regen * self.rte)
-            preds[:, t, :] = torch.cat([r_curtailed, s, lost], dim=-1)
+            preds[:, t, :] = torch.cat([r_curtailed, s, lost, g_direct, g_regen * self.rte], dim=-1)
             # Reset lost to zero
             lost = torch.zeros((B,1))
             # Update stored energy for next time step

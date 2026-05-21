@@ -15,7 +15,7 @@ baseload_degree: ['rand(0, 3)']
 
 storage_factor: ['rand(0, 3)']
 storage_degree: ['rand(0, 4)']
-storage_threshold: ['rand(0, 2000)']
+storage_threshold: ['rand(0, 800)']
 
 price_factor: ['rand(0, 5)']
 price_degree: ['rand(0, 5)']

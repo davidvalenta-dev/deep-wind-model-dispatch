@@ -246,4 +246,4 @@ The strongest current result is:
 
 > A chronological rolling-horizon Gurobi/MIP model using PNNL CAES parameters and explicit physical constraints matches the published COVE-NN improvement on the full 1980-2023 dataset.
 
-COVE-DV remains a follow-up direction. The current COVE-DV student learned useful dispatch behavior, but it has not yet beaten the corrected Gurobi benchmark or the published COVE-NN result.
+COVE-DV remains a follow-up direction. The current COVE-DV student learned useful dispatch behavior, but it has not yet beaten the corrected Gurobi benchmark.

@@ -2,7 +2,7 @@
 
 This repository studies a hybrid wind farm with energy storage.
 
-In plain English, the project has two connected goals:
+the project has two connected goals:
 
 1. Predict wind power from weather and wind-speed data.
 2. Decide when storage should charge, hold, or discharge so the wind farm earns more value from electricity prices.

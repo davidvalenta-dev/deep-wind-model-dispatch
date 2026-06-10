@@ -195,3 +195,8 @@ cython_debug/
 
 **/.DS_Store
 .DS_Store
+
+# Large generated dispatch labels/checkpoints. Keep summaries and figures in Git.
+strategy_model/optimization/*labels*full*.csv
+strategy_model/optimization/rolling_horizon_gurobi_results/**/*labels*.csv
+strategy_model/optimization/rolling_horizon_gurobi_results/**/*checkpoint*.csv

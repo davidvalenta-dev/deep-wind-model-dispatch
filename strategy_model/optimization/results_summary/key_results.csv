@@ -1,0 +1,12 @@
+result,value,unit
+Reproduced paper COVE baseload,102.388491,COVE
+Reproduced paper COVE-NN,69.320358,COVE
+Reproduced COVE-NN improvement,32.3,percent
+Full SciPy baseload COVE,2.306185,COVE
+Full SciPy optimized COVE,1.323746,COVE
+Full SciPy improvement,42.6,percent
+Teacher split baseload COVE,20.305371,COVE
+Teacher split original COVE-NN,14.832572,COVE
+Teacher split fine-tuned COVE-NN,14.831326,COVE
+Teacher split SciPy teacher COVE,12.647042,COVE
+Fine-tuned improvement over original,0.001246,COVE lower

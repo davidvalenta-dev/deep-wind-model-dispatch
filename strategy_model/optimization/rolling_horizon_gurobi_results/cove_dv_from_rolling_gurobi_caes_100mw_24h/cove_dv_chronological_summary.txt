@@ -1,0 +1,8 @@
+best_val_cove: 5.554455
+test_cove_dv_chronological_cove: 12.035521
+test_teacher_cove: 11.302790
+test_baseload_cove: 16.974425
+test_cove_dv_chronological_improvement_vs_baseload_pct: 29.096148
+test_teacher_improvement_vs_baseload_pct: 33.412828
+test_final_soc_mean_pct: 81.925772
+test_final_soc_max_pct: 100.000000

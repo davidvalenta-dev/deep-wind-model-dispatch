@@ -1,0 +1,5 @@
+result,scope,cove,baseload_cove,improvement_vs_baseload_pct,note
+Paper COVE-NN reference,paper reported,,,32.3,Zach/Jessica reported result
+"Rolling Gurobi teacher, CAES 100MW/24h",full 1980-2023 dataset,1.1651311110450828,1.7430621023816228,33.15607576728834,Constraint-valid MIP benchmark
+COVE-DV trained from rolling Gurobi,held-out chronological test split,12.035521422665852,16.974425424576904,29.09614834302503,Neural student; did not beat COVE-NN yet
+Gurobi teacher on COVE-DV test split,held-out chronological test split,11.302789868526942,16.974425424576904,33.412827911324314,Teacher target for student

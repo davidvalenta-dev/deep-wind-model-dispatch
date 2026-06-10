@@ -1,0 +1,2 @@
+hours,generation_revenue,baseload_revenue,milp_revenue,wind_cost_c_ntg,dispatch_cost_c,ntg_profit_sum_gi_pi_minus_c_ntg,baseload_profit_sum_di_pi_minus_c,milp_profit_sum_di_pi_minus_c,ntg_cove_c_over_sum_gi_pi,baseload_cove,milp_cove,milp_cove_improvement_vs_baseload_pct,mean_action,max_storage
+168.0,22030.77816800319,16550.482627047848,22425.61198829605,42559080.0,51347640.0,-42537049.221832,-51331089.51737295,-51325214.3880117,1931.8010319676982,3102.4859611093416,2289.6873461824985,26.19830114029636,-3.96508223080413e-18,400.0

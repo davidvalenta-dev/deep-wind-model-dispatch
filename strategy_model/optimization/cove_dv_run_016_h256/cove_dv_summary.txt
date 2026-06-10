@@ -1,0 +1,10 @@
+COVE-DV forecast-window planner summary
+best_val_cove: 7.001945
+test_cove_dv_cove: 12.901129
+test_teacher_cove: 12.725301
+test_baseload_cove: 20.305371
+test_cove_dv_improvement_vs_baseload_pct: 36.464454
+test_teacher_improvement_vs_baseload_pct: 37.330370
+test_original_cove_nn_cove: 14.829817
+test_original_improvement_vs_baseload_pct: 26.966040
+test_cove_dv_delta_vs_original_cove: 1.928688

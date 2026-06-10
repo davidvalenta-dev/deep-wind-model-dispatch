@@ -1,0 +1,21 @@
+Teacher-trained COVE-NN summary
+epochs: 5
+train sequences: 1606
+validation sequences: 459
+test sequences: 230
+
+Teacher-trained test metrics:
+mse: 1903.282501
+model_cove: 14.830633
+teacher_cove: 12.622817
+baseload_cove: 20.305371
+model_improvement_vs_baseload_pct: 26.962022
+teacher_improvement_vs_baseload_pct: 37.835085
+
+Original run_016 test metrics on same split:
+mse: 1906.442291
+model_cove: 14.832572
+teacher_cove: 12.622817
+baseload_cove: 20.305371
+model_improvement_vs_baseload_pct: 26.952469
+teacher_improvement_vs_baseload_pct: 37.835085

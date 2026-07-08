@@ -65,8 +65,9 @@ def load_dataset_no_split(csv_path):
 
 def load_dataset(csv_path, config):
     df = pd.read_csv(csv_path)
-    speed = df['speed']
-    power = df['power']
+    df = df.dropna().reset_index(drop=True)
+    feature_matrix, feature_names = build_feature_matrix(df, config)
+    power = df['power'].astype(float)
 
     # Normalize power
     power /= np.max(power)
@@ -80,22 +81,27 @@ def load_dataset(csv_path, config):
     split_idxs = np.arange(0, len(power), seq_length)
     # Drop edges to avoid inhomogeneity in subarray length after split
     split_power = np.array(np.split(power, split_idxs)[1:-1])
-    split_speed = np.array(np.split(speed, split_idxs)[1:-1])
+    split_features = np.array(np.split(feature_matrix, split_idxs)[1:-1])
 
     # Format as torch tensor
     power_tensor = torch.tensor(split_power, dtype=torch.float)
-    speed_tensor = torch.tensor(split_speed, dtype=torch.float)
-    assert power_tensor.shape[0] == speed_tensor.shape[0]
+    features_tensor = torch.tensor(split_features, dtype=torch.float)
+    assert power_tensor.shape[0] == features_tensor.shape[0]
 
-    len_data = speed_tensor.shape[0]
+    len_data = features_tensor.shape[0]
     train_frac, val_frac = config['train_percent'], config['val_percent']
     train_size = int(train_frac * len_data)
     val_size = int(val_frac * len_data)
-    torch.manual_seed(0)
-    indices = torch.randperm(len_data)
-    train_indices = indices[:train_size]
-    val_indices = indices[train_size:train_size + val_size]
-    test_indices = indices[train_size + val_size:]
+    if config.get('split_strategy', 'chronological') == 'random':
+        torch.manual_seed(config.get('torch_seed', 0))
+        indices = torch.randperm(len_data)
+        train_indices = indices[:train_size]
+        val_indices = indices[train_size:train_size + val_size]
+        test_indices = indices[train_size + val_size:]
+    else:
+        train_indices = torch.arange(0, train_size)
+        val_indices = torch.arange(train_size, train_size + val_size)
+        test_indices = torch.arange(train_size + val_size, len_data)
 
 
     # train_end = 56020 // seq_length
@@ -109,10 +115,18 @@ def load_dataset(csv_path, config):
 
     assert set(train_indices).isdisjoint(set(val_indices)) and set(train_indices).isdisjoint(set(test_indices)) and set(val_indices).isdisjoint(set(test_indices))
 
+    train_mean = features_tensor[train_indices].reshape(-1, features_tensor.shape[-1]).mean(dim=0)
+    train_std = features_tensor[train_indices].reshape(-1, features_tensor.shape[-1]).std(dim=0)
+    train_std = torch.where(train_std == 0, torch.ones_like(train_std), train_std)
+    features_tensor = (features_tensor - train_mean) / train_std
+
     # Index tensors to get non-overlapping splits
-    X_train, y_train = speed_tensor[train_indices], power_tensor[train_indices]
-    X_val, y_val = speed_tensor[val_indices], power_tensor[val_indices]
-    X_test, y_test = speed_tensor[test_indices], power_tensor[test_indices]
+    X_train, y_train = features_tensor[train_indices], power_tensor[train_indices]
+    X_val, y_val = features_tensor[val_indices], power_tensor[val_indices]
+    X_test, y_test = features_tensor[test_indices], power_tensor[test_indices]
+
+    config['input_size'] = features_tensor.shape[-1]
+    config['feature_names'] = feature_names
 
     batch_size = config['batch_size']
 
@@ -126,6 +140,34 @@ def load_dataset(csv_path, config):
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_dataloader, val_dataloader, test_dataloader
+
+def build_feature_matrix(df, config):
+    if 'speed' not in df.columns:
+        raise ValueError("Expected a 'speed' column in the power-model dataset.")
+
+    features = pd.DataFrame(index=df.index)
+    speed = df['speed'].astype(float)
+    features['speed'] = speed
+
+    if config.get('use_power_curve_features', True):
+        features['speed_sq'] = speed ** 2
+        features['speed_cu'] = speed ** 3
+
+    if config.get('use_time_features', True):
+        if 'datetime' not in df.columns:
+            raise ValueError("Time features requested, but no 'datetime' column exists.")
+        dt = pd.to_datetime(df['datetime'])
+        hour = dt.dt.hour.astype(float)
+        day = dt.dt.dayofyear.astype(float)
+        month = dt.dt.month.astype(float)
+        features['hour_sin'] = np.sin(2 * np.pi * hour / 24)
+        features['hour_cos'] = np.cos(2 * np.pi * hour / 24)
+        features['day_sin'] = np.sin(2 * np.pi * day / 365.25)
+        features['day_cos'] = np.cos(2 * np.pi * day / 365.25)
+        features['month_sin'] = np.sin(2 * np.pi * month / 12)
+        features['month_cos'] = np.cos(2 * np.pi * month / 12)
+
+    return features.to_numpy(dtype=float), list(features.columns)
 
 # Returns config, model, and dataset (without split) for use with model evaluation
 def load_experiment(folder_name, dataset_path, use_autoregressive=False):

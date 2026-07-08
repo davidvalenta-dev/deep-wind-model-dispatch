@@ -9,6 +9,8 @@ import shutil
 
 def train(model, train_dataloader, val_dataloader, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.manual_seed(config.get('torch_seed', 0))
+    np.random.seed(config.get('numpy_seed', 0))
     model = model.to(device)
     criterion = CRPSLossBias()
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
@@ -46,17 +48,17 @@ def train(model, train_dataloader, val_dataloader, config):
 
         model.train()
         epoch_train_loss = []
-        for i, (speed, power) in enumerate(train_dataloader):
-            current_batch_size = speed.shape[0]
+        for i, (features, power) in enumerate(train_dataloader):
+            current_batch_size = features.shape[0]
             optimizer.zero_grad()
 
-            speed = speed.to(device)
+            features = features.to(device)
             power = power.to(device)
 
             quantile_preds = torch.empty(size=(current_batch_size, T, len(quantile_levels)), device=device)
             for m in range(len(quantile_levels)):
                 quantile_lvl = quantile_levels[m].repeat(T)
-                pred = model(speed, quantile_lvl, targets=power, teacher_forcing_prob=tf_prob)
+                pred = model(features, quantile_lvl, targets=power, teacher_forcing_prob=tf_prob)
                 quantile_preds[:,:,m] = pred.squeeze()
 
             loss, bias_loss = criterion(quantile_levels, quantile_preds, power)
@@ -103,15 +105,15 @@ def validate(model, dataloader, config):
     B = config['batch_size']
     T = config['seq_length']
 
-    for i, (speed, power) in enumerate(dataloader):
-        current_batch_size = speed.shape[0]
-        speed = speed.to(device)
+    for i, (features, power) in enumerate(dataloader):
+        current_batch_size = features.shape[0]
+        features = features.to(device)
         power = power.to(device)
 
         quantile_preds = torch.empty(size=(current_batch_size, T, len(quantile_levels)), device=device)
         for m in range(len(quantile_levels)):
             quantile_lvl = quantile_levels[m].repeat(T)
-            pred = model(speed, quantile_lvl)
+            pred = model(features, quantile_lvl)
             quantile_preds[:,:,m] = pred.squeeze()
         loss, _ = criterion(quantile_levels, quantile_preds, power)
         val_loss.append(loss.detach().cpu().numpy())

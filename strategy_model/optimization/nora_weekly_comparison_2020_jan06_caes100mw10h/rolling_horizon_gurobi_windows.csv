@@ -1,0 +1,2 @@
+window_index,horizon_start_hour,horizon_end_hour,executed_until_hour,initial_soc,soc_after_execution,planned_terminal_soc,objective,runtime_seconds,mip_gap,status
+0,0,167,167,600.0,600.0,600.0,19964.734916737398,0.01622486114501953,0.0,2

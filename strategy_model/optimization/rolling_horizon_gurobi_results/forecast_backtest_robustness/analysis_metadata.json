@@ -1,0 +1,17 @@
+{
+  "complete_test_years": [
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022
+  ],
+  "bootstrap_draws": 20000,
+  "statistical_test": "exact paired sign-flip permutation test",
+  "maximum_constraint_violation_new_runs": 2.842170943040401e-14,
+  "nqf_caveat": "Saved NQF-RNN predictions use target-hour wind speed and are diagnostic, not causal archived forecasts."
+}

@@ -2,7 +2,7 @@
 
 This experiment uses Gurobi as the mixed-integer teacher for COVE-DV.
 
-Plain English:
+Summary:
 - At each time step, Gurobi looks ahead a fixed number of hours.
 - It chooses charge, discharge, hold, direct-to-grid, delivered power, and storage.
 - Only the first part of that plan is executed.

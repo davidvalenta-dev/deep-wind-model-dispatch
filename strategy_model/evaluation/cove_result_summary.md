@@ -1,6 +1,6 @@
 # COVE Result Summary
 
-## Plain English
+## Summary
 
 COVE is the project score for dispatch. Lower COVE is better.
 

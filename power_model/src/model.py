@@ -21,8 +21,10 @@ class NQF_RNN(nn.Module):
         #during training, this should be the same quantile level repeated across timesteps
         #during inference, this should contain uniformly random quantiles to sample from
 
-        # x should have shape [batch size, timesteps)]
-        x = x.unsqueeze(-1)
+        # x can have shape [batch size, timesteps] for one feature or
+        # [batch size, timesteps, features] for a multivariate forecast.
+        if x.dim() == 2:
+            x = x.unsqueeze(-1)
         B = x.shape[0] #batch size
         T = x.shape[1] #timesteps
         output, _ = self.lstm(x)
@@ -44,12 +46,13 @@ class NQF_RNN_AR(nn.Module):
         self.nqf = NQF(hidden_size, nqf_hidden_sizes)
 
     def forward(self, x, alphas, targets=None, teacher_forcing_prob=1.0):
-        x = x.unsqueeze(-1)
+        if x.dim() == 2:
+            x = x.unsqueeze(-1)
         B = x.shape[0] #batch size
         T = x.shape[1] #timesteps
         
         hidden = None
-        prev_pred = torch.zeros(B, 1).to(device)
+        prev_pred = torch.zeros(B, 1).to(x.device)
         
         preds = []
         for t in range(T):
@@ -64,8 +67,8 @@ class NQF_RNN_AR(nn.Module):
             output, hidden = self.lstm(lstm_input, hidden)
             
             quantile_pred = self.nqf(output.squeeze(1), alphas[t])
-            # clamp predictions to stay within [0, 1] bounds
-            quantile_pred = torch.clamp(quantile_pred, 0, 1)
+            # Keep predictions in [0, 1] while preserving useful gradients.
+            quantile_pred = torch.sigmoid(quantile_pred)
 
             preds.append(quantile_pred)
             prev_pred = quantile_pred

@@ -1,8 +1,8 @@
 from torch.utils.data import Dataset
 
 class WindDataset(Dataset):
-    def __init__(self, speed, power):
-        self.v = speed
+    def __init__(self, features, power):
+        self.v = features
         self.g = power
 
     #Override from Dataset (required for use w/ DataLoader)
@@ -15,5 +15,5 @@ class WindDataset(Dataset):
 
     #Override from Dataset (required for use w/ DataLoader)
     def __getitem__(self, idx):
-        # (Wind speed, power)
+        # (Input features, power)
         return (self.v[idx], self.g[idx])

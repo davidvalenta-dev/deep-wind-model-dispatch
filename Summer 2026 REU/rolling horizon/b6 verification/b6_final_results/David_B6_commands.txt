@@ -1,0 +1,2 @@
+git -C /Users/davidvalenta/deep-wind-model-dispatch rev-parse HEAD
+/Users/davidvalenta/deep-wind-model-dispatch/venv/bin/python /Users/davidvalenta/deep-wind-model-dispatch/strategy_model/optimization/B6_CANONICAL_RUNNER.py --repo /Users/davidvalenta/deep-wind-model-dispatch --out /Users/davidvalenta/deep-wind-model-dispatch/strategy_model/optimization/b6_final_results

@@ -200,6 +200,7 @@ cython_debug/
 strategy_model/optimization/*labels*full*.csv
 strategy_model/optimization/rolling_horizon_gurobi_results/**/*labels*.csv
 strategy_model/optimization/rolling_horizon_gurobi_results/**/*checkpoint*.csv
+strategy_model/optimization/archive/cove_dv_exploratory/untracked_large_labels/
 # Local scratch file kept out of the public repo
 power_model/src/try.py
 

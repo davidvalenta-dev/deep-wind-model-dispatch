@@ -12,17 +12,15 @@ the corrected direct/curtailment execution, and a validator.
 cd /Users/davidvalenta/deep-wind-model-dispatch
 ./venv/bin/python strategy_model/optimization/B6_CANONICAL_RUNNER.py
 ./venv/bin/python strategy_model/optimization/B6_FINAL_VALIDATE.py
-./venv/bin/python strategy_model/optimization/REPO_REVIEWER_AUDIT.py
 ```
 
 Start with:
 
+- [`Summer 2026 REU/`](Summer%202026%20REU/)
 - [`PYTHON_REPRODUCTION_CHEAT_SHEET.md`](PYTHON_REPRODUCTION_CHEAT_SHEET.md)
 - [`strategy_model/optimization/B6_FINAL_README.md`](strategy_model/optimization/B6_FINAL_README.md)
 - [`strategy_model/optimization/B6_CANONICAL_RUNNER.py`](strategy_model/optimization/B6_CANONICAL_RUNNER.py)
 - [`strategy_model/optimization/B6_FINAL_VALIDATE.py`](strategy_model/optimization/B6_FINAL_VALIDATE.py)
-- [`strategy_model/optimization/REPO_REVIEWER_AUDIT.py`](strategy_model/optimization/REPO_REVIEWER_AUDIT.py)
-- [`strategy_model/optimization/CHRIS_MEMO_CHECKLIST.py`](strategy_model/optimization/CHRIS_MEMO_CHECKLIST.py)
 
 Important: older result folders below are research history unless they are
 explicitly rerun under the B6 configuration. Do not mix their numbers with the
@@ -219,26 +217,26 @@ Gurobi/MILP teacher decisions -> neural network learns dispatch policy -> test c
 
 Important result files:
 
-- [`strategy_model/optimization/cove_dv_results/cove_dv_key_results.csv`](strategy_model/optimization/cove_dv_results/cove_dv_key_results.csv)
-- [`strategy_model/optimization/cove_dv_nora_chronological_key_results.csv`](strategy_model/optimization/cove_dv_nora_chronological_key_results.csv)
-- [`strategy_model/optimization/rolling_horizon_gurobi_results/cove_dv_from_rolling_gurobi_caes_100mw_24h/`](strategy_model/optimization/rolling_horizon_gurobi_results/cove_dv_from_rolling_gurobi_caes_100mw_24h/)
+- [`strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_results/cove_dv_key_results.csv`](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_results/cove_dv_key_results.csv)
+- [`strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_key_results.csv`](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_key_results.csv)
+- [`strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_from_rolling_gurobi_caes_100mw_24h/`](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_from_rolling_gurobi_caes_100mw_24h/)
 
 Figures:
 
-- [COVE-DV result](strategy_model/optimization/cove_dv_figures/01_cove_dv_breakthrough_result.png)
-- [COVE-DV improvement](strategy_model/optimization/cove_dv_figures/02_cove_dv_improvement_percent.png)
-- [Validation curve](strategy_model/optimization/cove_dv_figures/03_cove_dv_validation_curve.png)
-- [Action signal example week](strategy_model/optimization/cove_dv_figures/04_cove_dv_action_signal_example_week.png)
-- [Generation and price](strategy_model/optimization/cove_dv_figures/05_generation_price_example_week.png)
-- [Dispatch example week](strategy_model/optimization/cove_dv_figures/06_cove_dv_dispatch_example_week.png)
-- [Storage example week](strategy_model/optimization/cove_dv_figures/07_cove_dv_storage_example_week.png)
-- [Nora chronological COVE-DV result](strategy_model/optimization/cove_dv_nora_chronological_figures/01_nora_chronological_cove_result.png)
-- [Nora chronological improvement](strategy_model/optimization/cove_dv_nora_chronological_figures/02_nora_chronological_improvement.png)
-- [Nora chronological training curve](strategy_model/optimization/cove_dv_nora_chronological_figures/03_nora_chronological_training_curve.png)
-- [Nora chronological action example week](strategy_model/optimization/cove_dv_nora_chronological_figures/04_nora_chronological_action_example_week.png)
-- [Nora chronological generation and price](strategy_model/optimization/cove_dv_nora_chronological_figures/05_nora_chronological_generation_price.png)
-- [Nora chronological dispatch example week](strategy_model/optimization/cove_dv_nora_chronological_figures/06_nora_chronological_dispatch_example_week.png)
-- [Nora chronological storage example week](strategy_model/optimization/cove_dv_nora_chronological_figures/07_nora_chronological_storage_example_week.png)
+- [COVE-DV result](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/01_cove_dv_breakthrough_result.png)
+- [COVE-DV improvement](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/02_cove_dv_improvement_percent.png)
+- [Validation curve](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/03_cove_dv_validation_curve.png)
+- [Action signal example week](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/04_cove_dv_action_signal_example_week.png)
+- [Generation and price](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/05_generation_price_example_week.png)
+- [Dispatch example week](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/06_cove_dv_dispatch_example_week.png)
+- [Storage example week](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_figures/07_cove_dv_storage_example_week.png)
+- [Nora chronological COVE-DV result](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/01_nora_chronological_cove_result.png)
+- [Nora chronological improvement](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/02_nora_chronological_improvement.png)
+- [Nora chronological training curve](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/03_nora_chronological_training_curve.png)
+- [Nora chronological action example week](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/04_nora_chronological_action_example_week.png)
+- [Nora chronological generation and price](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/05_nora_chronological_generation_price.png)
+- [Nora chronological dispatch example week](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/06_nora_chronological_dispatch_example_week.png)
+- [Nora chronological storage example week](strategy_model/optimization/archive/cove_dv_exploratory/cove_dv_nora_chronological_figures/07_nora_chronological_storage_example_week.png)
 
 ### 7. Uncertainty-Aware Scenario Dispatch
 

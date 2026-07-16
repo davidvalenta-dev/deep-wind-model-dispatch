@@ -1,0 +1,10 @@
+cdsapi
+ipykernel
+pandas
+xarray
+numpy
+openpyxl
+matplotlib
+torch
+tabulate
+pyyaml

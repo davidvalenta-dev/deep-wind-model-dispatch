@@ -1,0 +1,27 @@
+David B6 Deliverable Manifest
+
+Repository commit: b14f5d183c4df1824a75d3da3bdbbb0062f6a110
+Repository URL: https://github.com/davidvalenta-dev/deep-wind-model-dispatch.git
+
+Chris follow-up confirmations:
+- Complete 2020 wind file: /Users/davidvalenta/deep-wind-model-dispatch/data/processed/pyron_power.csv (8784 records)
+- Complete 2020 raw price file: /Users/davidvalenta/deep-wind-model-dispatch/data/raw/prices/12cfb125-8fa9-4401-8b0f-9d928544b721.csv (8784 records)
+- Aligned B6 output coverage: 8784 records, 2020-01-01 00:00:00 through 2020-12-31 23:00:00
+- Older combined file not used: /Users/davidvalenta/deep-wind-model-dispatch/data/processed/dataset_1980-2023_withloads_fix.csv
+- Missing timestamp in older combined file: 2020-11-15 23:00:00
+- Revenue uses raw, uncapped, unnormalized actual LMP in USD/MWh multiplied by realized delivered energy.
+
+Completed templates:
+- David_B6_Run_Configuration_and_Reproducibility_Completed.docx
+- David_B6_Run_Results_and_QA_Completed.xlsx
+
+Hourly CSV files:
+- David_B6_A_CAUSAL_2020_Hourly.csv
+- David_B6_A_ORACLE_2020_Hourly.csv
+- David_B6_B_CAUSAL_2020_Hourly.csv
+- David_B6_B_ORACLE_2020_Hourly.csv
+- David_B6_C_CAUSAL_2020_Hourly.csv
+- David_B6_C_ORACLE_2020_Hourly.csv
+
+Command/config/log package:
+- David_B6_Commands_Configs_and_Logs.zip

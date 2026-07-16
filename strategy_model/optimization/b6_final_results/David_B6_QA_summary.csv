@@ -1,0 +1,7 @@
+run_id,qa_soc_below_min_violation_count,qa_soc_above_max_violation_count,qa_simultaneous_charge_discharge_violation_count,qa_wind_only_charging_violation_count,qa_grid_export_violation_count,qa_energy_availability_violation_count,qa_soc_update_max_abs_error,qa_delivered_balance_max_abs_error,qa_hourly_revenue_sum_error_USD,qa_annual_terminal_soc_target_mwh,qa_annual_terminal_soc_abs_error_mwh,qa_annual_terminal_soc_violation_count,qa_row_count,qa_first_timestamp,qa_last_timestamp
+A_ORACLE,0,0,0,0,0,0,1.7053025658242404e-13,7.105427357601002e-14,0.0,120.0,0.0,0,8784,2020-01-01 00:00:00,2020-12-31 23:00:00
+A_CAUSAL,0,0,0,0,0,0,0.0,1.4210854715202004e-14,0.0,120.0,0.0,0,8784,2020-01-01 00:00:00,2020-12-31 23:00:00
+B_ORACLE,0,0,0,0,0,0,1.1368683772161603e-13,2.842170943040401e-14,0.0,120.0,0.0,0,8784,2020-01-01 00:00:00,2020-12-31 23:00:00
+B_CAUSAL,0,0,0,0,0,0,0.0,2.842170943040401e-14,0.0,120.0,2.842170943040401e-14,0,8784,2020-01-01 00:00:00,2020-12-31 23:00:00
+C_ORACLE,0,0,0,0,0,0,3.410605131648481e-13,9.947598300641403e-14,0.0,200.0,0.0,0,8784,2020-01-01 00:00:00,2020-12-31 23:00:00
+C_CAUSAL,0,0,0,0,0,0,0.0,1.4210854715202004e-14,0.0,200.0,1.1368683772161603e-13,0,8784,2020-01-01 00:00:00,2020-12-31 23:00:00

@@ -2,6 +2,51 @@
 
 This fork is now organized around the June 2026 research work on hybrid wind farm dispatch with energy storage.
 
+## Start Here For Reproduction
+
+For Chris/reviewer reproduction, use the frozen B6 path first. It is the
+strictest package because it uses one consistent 2020 setup, raw realized LMP,
+the corrected direct/curtailment execution, and a validator.
+
+```bash
+cd /Users/davidvalenta/deep-wind-model-dispatch
+./venv/bin/python strategy_model/optimization/B6_CANONICAL_RUNNER.py
+./venv/bin/python strategy_model/optimization/B6_FINAL_VALIDATE.py
+./venv/bin/python strategy_model/optimization/REPO_REVIEWER_AUDIT.py
+```
+
+Start with:
+
+- [`PYTHON_REPRODUCTION_CHEAT_SHEET.md`](PYTHON_REPRODUCTION_CHEAT_SHEET.md)
+- [`strategy_model/optimization/B6_FINAL_README.md`](strategy_model/optimization/B6_FINAL_README.md)
+- [`strategy_model/optimization/B6_CANONICAL_RUNNER.py`](strategy_model/optimization/B6_CANONICAL_RUNNER.py)
+- [`strategy_model/optimization/B6_FINAL_VALIDATE.py`](strategy_model/optimization/B6_FINAL_VALIDATE.py)
+- [`strategy_model/optimization/REPO_REVIEWER_AUDIT.py`](strategy_model/optimization/REPO_REVIEWER_AUDIT.py)
+- [`strategy_model/optimization/CHRIS_MEMO_CHECKLIST.py`](strategy_model/optimization/CHRIS_MEMO_CHECKLIST.py)
+
+Important: older result folders below are research history unless they are
+explicitly rerun under the B6 configuration. Do not mix their numbers with the
+frozen B6 benchmark as if they use the same assumptions.
+
+## Frozen B6 Benchmark Results
+
+This is the current reviewer-safe computational package. It uses one consistent
+setup: full 2020 Pyron wind, raw realized PYR_PYRON1 LMP, CAES-equivalent RTE
+0.55, 249 MW grid cap, wind-only charging, 48-hour causal planning, 24-hour
+execution, and 20% minimum/initial/final annual SoC.
+
+| Run | Power | Duration | Energy | Raw realized revenue | QA |
+| --- | ---: | ---: | ---: | ---: | --- |
+| A Oracle | 100 MW | 6 h | 600 MWh | $12,927,456.69 | 0 violations |
+| A Causal | 100 MW | 6 h | 600 MWh | $8,181,454.34 | 0 violations |
+| B Oracle | 200 MW | 3 h | 600 MWh | $13,810,058.70 | 0 violations |
+| B Causal | 200 MW | 3 h | 600 MWh | $8,196,866.97 | 0 violations |
+| C Oracle | 100 MW | 10 h | 1000 MWh | $13,397,415.84 | 0 violations |
+| C Causal | 100 MW | 10 h | 1000 MWh | $8,399,203.77 | 0 violations |
+
+All six B6 hourly files contain 8,784 rows and satisfy the annual terminal SoC
+rule. The validator prints `PASS`.
+
 The simple idea is:
 
 ```text
@@ -14,7 +59,12 @@ The two connected parts are:
 2. **Dispatch optimization:** use the predicted or known power and electricity price to decide how storage should operate.
 
 
-## June 2026 Results Dashboard
+## June 2026 Research History Dashboard
+
+The sections below document the broader research path. They are useful for the
+project story, but they should not be compared directly against B6 unless the
+experiment is rerun under the same B6 data, storage, SoC, recourse, and scoring
+rules.
 
 ### 1. Power Forecasting
 

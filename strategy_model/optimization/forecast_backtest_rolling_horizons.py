@@ -234,6 +234,7 @@ def execute_plan_against_actual(
     storage[0] = float(np.clip(initial_soc, min_soc, max_soc))
 
     for t, generation in enumerate(actual_generation):
+        planned_direct = float(planned["direct"][t])
         planned_charge = float(planned["charge"][t])
         planned_discharge = float(planned["discharge"][t])
         if planned_charge > planned_discharge:
@@ -245,7 +246,7 @@ def execute_plan_against_actual(
             discharge[t] = min(planned_discharge, rating, available)
 
         wind_after_charge = max(0.0, generation - charge[t])
-        direct[t] = min(wind_after_charge, max(0.0, grid_cap - discharge[t]))
+        direct[t] = min(planned_direct, wind_after_charge, max(0.0, grid_cap - discharge[t]))
         delivered[t] = direct[t] + discharge[t]
         curtailment[t] = max(0.0, generation - direct[t] - charge[t])
         storage[t + 1] = storage[t] + charge[t] - discharge[t] / rte

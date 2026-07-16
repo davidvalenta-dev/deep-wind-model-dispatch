@@ -2,20 +2,20 @@
 
 This folder contains the realistic forecast-driven dispatch test.
 
-The controller plans using predicted wind and predicted price, executes only the first 24 hours, carries the battery state forward, and repeats.
+The controller plans using predicted wind and predicted price, executes only the first 24 hours, carries the battery state forward, and repeats. The causal rows use a 75 MW direct-export reserve to reduce unnecessary curtailment when wind is underpredicted.
 
 ## Result Table
 
-| Method | Horizon | COVE | Baseload COVE | COVE reduction |
-| --- | ---: | ---: | ---: | ---: |
-| Causal forecast | 24 h | 6.568551 | 7.273584 | 9.69% |
-| Causal forecast | 48 h | 6.377563 | 7.273584 | 12.32% |
-| Causal forecast | 72 h | 6.389838 | 7.273584 | 12.15% |
-| Causal forecast | 168 h | 6.430980 | 7.273584 | 11.58% |
-| Oracle | 24 h | 5.224981 | 7.273584 | 28.16% |
-| Oracle | 48 h | 5.004137 | 7.273584 | 31.20% |
-| Oracle | 72 h | 4.928657 | 7.273584 | 32.24% |
-| Oracle | 168 h | 4.893397 | 7.273584 | 32.72% |
+| Method | Horizon | Direct reserve | COVE | Baseload COVE | COVE reduction |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Causal forecast + direct reserve | 24 h | 75 MW | 7.033181 | 7.273584 | 3.31% |
+| Causal forecast + direct reserve | 48 h | 75 MW | 6.818936 | 7.273584 | 6.25% |
+| Causal forecast + direct reserve | 72 h | 75 MW | 6.833112 | 7.273584 | 6.06% |
+| Causal forecast + direct reserve | 168 h | 75 MW | 6.878207 | 7.273584 | 5.44% |
+| Oracle | 24 h | 0 MW | 5.214904 | 7.273584 | 28.30% |
+| Oracle | 48 h | 0 MW | 4.995396 | 7.273584 | 31.32% |
+| Oracle | 72 h | 0 MW | 4.920584 | 7.273584 | 32.35% |
+| Oracle | 168 h | 0 MW | 4.885438 | 7.273584 | 32.83% |
 
 ## Figures
 
@@ -27,4 +27,4 @@ The controller plans using predicted wind and predicted price, executes only the
 
 ## Key Takeaway
 
-With imperfect forecasts, the 48-hour horizon was best in this backtest. Longer horizons can hurt because forecast error grows farther into the future.
+With imperfect forecasts, the 48-hour horizon was best in this backtest. Longer horizons can hurt because forecast error grows farther into the future. The direct reserve helps because the ridge forecast tends to underpredict wind, and strict planned-direct execution otherwise turns some physically deliverable wind into curtailment.

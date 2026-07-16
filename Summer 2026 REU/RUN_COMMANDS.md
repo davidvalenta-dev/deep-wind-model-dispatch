@@ -8,10 +8,14 @@ cd /Users/davidvalenta/deep-wind-model-dispatch
 
 ## Causal Ridge Regression + Oracle Upper Bound
 
-This reproduces the causal forecast horizons and the oracle upper-bound horizons.
+This reproduces the reserve-adjusted causal forecast horizons and the oracle
+upper-bound horizons. The `--direct-reserve-mw 75` option is the explicit
+robustness buffer used to prevent wind forecast underprediction from causing
+unnecessary realized curtailment under the strict planned-direct execution rule.
 
 ```bash
-./venv/bin/python strategy_model/optimization/forecast_backtest_rolling_horizons.py
+./venv/bin/python strategy_model/optimization/forecast_backtest_rolling_horizons.py \
+  --direct-reserve-mw 75
 ```
 
 Main outputs:
@@ -96,4 +100,3 @@ strategy_model/optimization/b6_final_results/David_B6_run_summary.csv
 strategy_model/optimization/b6_final_results/David_B6_QA_summary.csv
 strategy_model/optimization/b6_final_results/David_B6_frozen_config.json
 ```
-

@@ -159,17 +159,17 @@ Figures:
 
 ### 4. Forecast-Driven Rolling-Horizon Dispatch
 
-This is the more realistic test: plan using predicted wind/price, execute the first day, then move forward chronologically and score using what actually happened.
+This is the more realistic test: plan using predicted wind/price, execute the first day, then move forward chronologically and score using what actually happened. The final causal run uses a 75 MW direct-export reserve, which protects against wind forecast underprediction under the strict planned-direct execution rule.
 
-| Method | Horizon | Revenue metric | COVE | Baseload COVE | COVE reduction |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Causal forecast | 24 h | 7.901e6 | 6.5686 | 7.2736 | 9.69% |
-| Causal forecast | 48 h | 8.137e6 | 6.3776 | 7.2736 | 12.32% |
-| Causal forecast | 72 h | 8.122e6 | 6.3898 | 7.2736 | 12.15% |
-| Causal forecast | 168 h | 8.070e6 | 6.4310 | 7.2736 | 11.58% |
-| Oracle | 168 h | 1.061e7 | 4.8934 | 7.2736 | 32.72% |
+| Method | Horizon | Direct reserve | Revenue metric | COVE | Baseload COVE | COVE reduction |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Causal forecast + direct reserve | 24 h | 75 MW | 7.379e6 | 7.0332 | 7.2736 | 3.31% |
+| Causal forecast + direct reserve | 48 h | 75 MW | 7.611e6 | 6.8189 | 7.2736 | 6.25% |
+| Causal forecast + direct reserve | 72 h | 75 MW | 7.595e6 | 6.8331 | 7.2736 | 6.06% |
+| Causal forecast + direct reserve | 168 h | 75 MW | 7.545e6 | 6.8782 | 7.2736 | 5.44% |
+| Oracle | 168 h | 0 MW | 1.062e7 | 4.8854 | 7.2736 | 32.83% |
 
-Interpretation: with imperfect forecasts, the best tested causal horizon was 48 hours. The oracle result is much better because it knows the future.
+Interpretation: with imperfect forecasts, the best tested reserve-adjusted causal horizon was 48 hours. The oracle result is much better because it knows the future.
 
 Folder:
 

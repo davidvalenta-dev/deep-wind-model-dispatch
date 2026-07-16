@@ -318,6 +318,33 @@ def check_realized_constraints(
     }
 
 
+def apply_direct_reserve(
+    solution: dict,
+    config: dict,
+    direct_reserve_mw: float,
+) -> dict:
+    """Reserve direct-export headroom for causal forecast errors.
+
+    The corrected realized-execution rule keeps the planned direct-wind
+    allocation fixed. When the wind forecast is low, this can curtail actual
+    wind even if the grid has room. The reserve keeps the optimized storage
+    action but raises the planned direct-wind allocation by a chosen MW buffer.
+    Realized execution still enforces wind availability and the grid cap.
+    """
+    if direct_reserve_mw <= 0:
+        return solution
+
+    reserved = dict(solution)
+    grid_cap = float(config["rated_capacity"])
+    direct = np.asarray(solution["direct"], dtype=float).copy()
+    discharge = np.asarray(solution["discharge"], dtype=float)
+    reserved["direct"] = np.minimum(
+        np.maximum(0.0, grid_cap - discharge),
+        direct + float(direct_reserve_mw),
+    )
+    return reserved
+
+
 def run_horizon(
     df: pd.DataFrame,
     test_start: int,
@@ -331,6 +358,7 @@ def run_horizon(
     max_soc_frac: float,
     mip_gap: float,
     perfect_information: bool,
+    direct_reserve_mw: float,
 ) -> tuple[pd.DataFrame, dict]:
     actual_generation = df["power_generated"].to_numpy(dtype=float)
     actual_price = df["price_normalized"].to_numpy(dtype=float)
@@ -366,8 +394,13 @@ def run_horizon(
             None,
         )
         solver_runtime += float(solution["runtime"])
-        realized = execute_plan_against_actual(
+        execution_plan = apply_direct_reserve(
             solution,
+            config,
+            0.0 if perfect_information else direct_reserve_mw,
+        )
+        realized = execute_plan_against_actual(
+            execution_plan,
             actual_generation[origin : origin + execute_len],
             current_soc,
             config,
@@ -387,7 +420,8 @@ def run_horizon(
                     "forecast_generation": planned_generation[k],
                     "actual_price": actual_price[hour],
                     "forecast_price": planned_price[k],
-                    "planned_direct": float(solution["direct"][k]),
+                    "optimized_direct": float(solution["direct"][k]),
+                    "planned_direct": float(execution_plan["direct"][k]),
                     "planned_charge": float(solution["charge"][k]),
                     "planned_discharge": float(solution["discharge"][k]),
                     "realized_direct": realized["direct"][k],
@@ -424,8 +458,17 @@ def run_horizon(
         labels, config, min_soc_frac, max_soc_frac
     )
     summary = {
-        "method": "oracle" if perfect_information else "causal_forecast",
+        "method": "oracle"
+        if perfect_information
+        else (
+            "causal_forecast_direct_reserve"
+            if direct_reserve_mw > 0
+            else "causal_forecast"
+        ),
         "horizon_hours": horizon,
+        "direct_reserve_mw": 0.0
+        if perfect_information
+        else float(direct_reserve_mw),
         "hours": len(labels),
         "test_start": str(labels["datetime"].iloc[0]),
         "test_end": str(labels["datetime"].iloc[-1]),
@@ -459,7 +502,9 @@ def save_figures(
     output_dir: Path,
 ):
     colors = ["#2563EB", "#0F766E", "#B45309", "#7C3AED"]
-    forecast = summary[summary["method"] == "causal_forecast"].sort_values(
+    forecast = summary[
+        summary["method"].str.startswith("causal_forecast")
+    ].sort_values(
         "horizon_hours"
     )
     oracle = summary[summary["method"] == "oracle"].sort_values("horizon_hours")
@@ -652,6 +697,16 @@ def main():
     parser.add_argument("--initial-soc", type=float, default=1440.0)
     parser.add_argument("--min-soc-frac", type=float, default=0.2)
     parser.add_argument("--max-soc-frac", type=float, default=1.0)
+    parser.add_argument(
+        "--direct-reserve-mw",
+        type=float,
+        default=0.0,
+        help=(
+            "Extra planned direct-wind export headroom for causal forecast "
+            "execution. This keeps storage actions optimized but reduces "
+            "curtailment from wind forecast underprediction."
+        ),
+    )
     parser.add_argument("--skip-oracle", action="store_true")
     parser.add_argument(
         "--out-dir",
@@ -780,6 +835,7 @@ def main():
             args.max_soc_frac,
             args.mip_gap,
             perfect_information=False,
+            direct_reserve_mw=args.direct_reserve_mw,
         )
         labels.to_csv(
             output_dir / f"forecast_dispatch_{horizon}h.csv", index=False
@@ -802,6 +858,7 @@ def main():
                 args.max_soc_frac,
                 args.mip_gap,
                 perfect_information=True,
+                direct_reserve_mw=0.0,
             )
             labels.to_csv(
                 output_dir / f"oracle_dispatch_{horizon}h.csv", index=False
@@ -817,6 +874,7 @@ def main():
         for column in summary_df.columns
         if column.startswith("max_") and column.endswith("_violation")
     )
+    causal_rows = summary_df[summary_df["method"].str.startswith("causal_forecast")]
     report = {
         "training_period": [
             str(df["datetime"].iloc[0]),
@@ -839,9 +897,7 @@ def main():
         },
         "maximum_constraint_violation": maximum_violation,
         "best_forecast_horizon": int(
-            summary_df[summary_df["method"] == "causal_forecast"]
-            .sort_values("cove")
-            .iloc[0]["horizon_hours"]
+            causal_rows.sort_values("cove").iloc[0]["horizon_hours"]
         ),
     }
     (output_dir / "experiment_metadata.json").write_text(

@@ -77,24 +77,25 @@ Metadata from the result folder:
 | Capacity | 2400 MWh |
 | RTE | 0.55 |
 | Grid limit | 249 MW |
-| Best causal forecast horizon | 48 hours |
+| Best reserve-adjusted causal forecast horizon | 48 hours |
+| Direct-export reserve | 75 MW |
 
 Key result:
 
-| Method | Horizon | Revenue metric | Baseload revenue metric | COVE | Baseload COVE | COVE reduction |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Causal forecast | 24 h | 7,900,680.73 | 7,134,863.37 | 6.568551 | 7.273584 | 9.69% |
-| Causal forecast | 48 h | 8,137,281.56 | 7,134,863.37 | 6.377563 | 7.273584 | 12.32% |
-| Causal forecast | 72 h | 8,121,648.93 | 7,134,863.37 | 6.389838 | 7.273584 | 12.15% |
-| Causal forecast | 168 h | 8,069,691.73 | 7,134,863.37 | 6.430980 | 7.273584 | 11.58% |
-| Oracle | 24 h | 9,932,289.40 | 7,134,863.37 | 5.224981 | 7.273584 | 28.16% |
-| Oracle | 48 h | 10,370,623.54 | 7,134,863.37 | 5.004137 | 7.273584 | 31.20% |
-| Oracle | 72 h | 10,529,444.46 | 7,134,863.37 | 4.928657 | 7.273584 | 32.24% |
-| Oracle | 168 h | 10,605,317.62 | 7,134,863.37 | 4.893397 | 7.273584 | 32.72% |
+| Method | Horizon | Direct reserve | Revenue metric | Baseload revenue metric | COVE | Baseload COVE | COVE reduction |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Causal forecast + direct reserve | 24 h | 75 MW | 7,378,742.00 | 7,134,863.37 | 7.033181 | 7.273584 | 3.31% |
+| Causal forecast + direct reserve | 48 h | 75 MW | 7,610,576.00 | 7,134,863.37 | 6.818936 | 7.273584 | 6.25% |
+| Causal forecast + direct reserve | 72 h | 75 MW | 7,594,786.00 | 7,134,863.37 | 6.833112 | 7.273584 | 6.06% |
+| Causal forecast + direct reserve | 168 h | 75 MW | 7,544,994.00 | 7,134,863.37 | 6.878207 | 7.273584 | 5.44% |
+| Oracle | 24 h | 0 MW | 9,951,482.65 | 7,134,863.37 | 5.214904 | 7.273584 | 28.30% |
+| Oracle | 48 h | 0 MW | 10,388,770.32 | 7,134,863.37 | 4.995396 | 7.273584 | 31.32% |
+| Oracle | 72 h | 0 MW | 10,546,720.47 | 7,134,863.37 | 4.920584 | 7.273584 | 32.35% |
+| Oracle | 168 h | 0 MW | 10,622,594.82 | 7,134,863.37 | 4.885438 | 7.273584 | 32.83% |
 
 How to describe it:
 
-The causal forecast result is realistic because Gurobi uses forecasts rather than the actual future. The oracle result is not realistic but shows the upper bound if future wind and price were known. In the causal forecast backtest, 48 hours was best; in the oracle case, longer lookahead helped more because there was no forecast error.
+The reserve-adjusted causal forecast result is realistic because Gurobi uses forecasts rather than the actual future and realized execution follows the strict planned-direct rule. The 75 MW direct-export reserve is a robustness buffer against wind forecast underprediction. The oracle result is not realistic but shows the upper bound if future wind and price were known. In the causal forecast backtest, 48 hours was best; in the oracle case, longer lookahead helped more because there was no forecast error.
 
 What not to claim:
 
@@ -222,4 +223,3 @@ Use this wording to avoid mixing result sets:
 | Robustness | Complete years inside 2014-2023 | Yearly statistics and CI | `forecast_backtest_robustness/` |
 | B6 | 2020 only | Verification requested by Chris | `b6_final_results/` |
 | COVE-DV / teacher-student | Earlier exploratory work | Historical ML idea, not the main final paper result | `cove_dv_*` folders |
-

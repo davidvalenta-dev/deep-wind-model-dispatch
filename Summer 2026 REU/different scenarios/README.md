@@ -1,49 +1,32 @@
 # Different Scenarios
 
-This folder contains the uncertainty-aware dispatch result. Instead of giving Gurobi one predicted future, the scenario method gives it several possible 24-hour futures for wind and price.
+This folder answers the third question:
 
-## What Baseload Was
+> Does dispatch improve if Gurobi sees several possible forecast futures instead of one?
 
-For the scenario experiment:
+Run:
 
-| Quantity | Value |
-| --- | ---: |
-| Baseload revenue | $180,653,095.06 |
-| Baseload COVE | 0.324684 |
+```bash
+../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
+```
 
-Baseload is the reference case used to measure whether scenario-aware storage dispatch earns more revenue and lowers COVE.
+The script compares baseload, single-forecast dispatch, and 3/5/7/10 scenario dispatch. This is the third step of the ladder: it keeps the causal ridge forecast and 48-hour Gurobi lookahead, then adds multiple possible futures and hourly replanning.
 
-## What We Compared Baseload With
+Main result:
 
-We compared baseload against:
+```text
+Single forecast: 19.40% COVE reduction vs baseload
+3 scenarios:     23.19% COVE reduction vs baseload
+5 scenarios:     23.01% COVE reduction vs baseload
+7 scenarios:     23.03% COVE reduction vs baseload
+10 scenarios:    20.47% COVE reduction vs baseload
+```
 
-1. single-forecast closed-loop dispatch,
-2. three-scenario dispatch,
-3. five-scenario dispatch,
-4. seven-scenario dispatch,
-5. ten-scenario dispatch.
+The best case is three scenarios. Five and seven scenarios are very close, while ten scenarios performed worse because it became too conservative.
 
-## Main Result
+Generated figures:
 
-| Method | Dispatch revenue | Gain vs baseload | Dispatch COVE | COVE reduction vs baseload |
-| --- | ---: | ---: | ---: | ---: |
-| Single forecast | $209,947,648.70 | 16.22% | 0.279380 | 13.95% |
-| Three scenarios | $210,298,180.87 | 16.41% | 0.278914 | 14.10% |
-| Five scenarios | $211,596,820.64 | 17.13% | 0.277202 | 14.62% |
-| Seven scenarios | $212,097,824.78 | 17.41% | 0.276547 | 14.83% |
-| Ten scenarios | $205,263,577.22 | 13.62% | 0.285755 | 11.99% |
-
-The best result was the seven-scenario closed-loop gated controller.
-
-## Why Seven Beat Ten
-
-More scenarios do not automatically make better dispatch. The ten-scenario case became more conservative, meaning it avoided some useful charge/discharge decisions because it was trying to protect against too many possible futures. Seven scenarios gave enough uncertainty information without becoming too cautious.
-
-## Key Files
-
-| Subfolder | Contents |
-| --- | --- |
-| `code` | Scenario runner and supporting forecast/dispatch scripts |
-| `results` | Scenario summary CSVs |
-| `figures` | Revenue, COVE, example week, and pipeline figures |
-
+```text
+figures/step3_scenario_cove_improvement.png
+figures/step3_scenario_revenue_gain.png
+```

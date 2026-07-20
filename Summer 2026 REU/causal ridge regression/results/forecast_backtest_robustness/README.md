@@ -21,10 +21,7 @@ This folder checks whether the forecast-driven dispatch result is stable by year
 
 ## Figures
 
-- [Yearly horizon results](figure_01_yearly_horizon_results.png)
-- [48h confidence intervals](figure_02_48h_confidence_intervals.png)
-- [Forecast model comparison](figure_03_forecast_model_comparison.png)
-- [Sensitivity analysis](figure_04_sensitivity_analysis.png)
+The old exploratory robustness figures have been archived outside the Summer folder. The current paper-facing figures are the three-step ladder figures listed in `Summer 2026 REU/RUN_COMMANDS.md`.
 
 ## Key Takeaway
 

@@ -1,102 +1,84 @@
-# Run Commands For Paper Results
+# Summer 2026 REU Reproduction Ladder
 
-Run these from the repository root:
+Run one command in each folder. The three folders are meant to be read like a ladder:
 
-```bash
-cd /Users/davidvalenta/deep-wind-model-dispatch
-```
+1. Forecast quality: choose the forecast model.
+2. Rolling-horizon dispatch: use that forecast inside Gurobi.
+3. Scenario dispatch: add multiple possible forecast futures.
 
-## Causal Ridge Regression + Oracle Upper Bound
-
-This reproduces the reserve-adjusted causal forecast horizons and the oracle
-upper-bound horizons. The `--direct-reserve-mw 75` option is the explicit
-robustness buffer used to prevent wind forecast underprediction from causing
-unnecessary realized curtailment under the strict planned-direct execution rule.
+## Step 1: Causal Ridge Regression
 
 ```bash
-./venv/bin/python strategy_model/optimization/forecast_backtest_rolling_horizons.py \
-  --direct-reserve-mw 75
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/causal ridge regression"
+../../venv/bin/python RUN_1_FORECAST_RMSE.py
 ```
 
-Main outputs:
+This prints the RMSE comparison between forecasting methods.
+
+Main result:
 
 ```text
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_summary.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_24h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_48h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_72h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_168h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/oracle_dispatch_24h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/oracle_dispatch_48h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/oracle_dispatch_72h.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/oracle_dispatch_168h.csv
+Causal lag / ridge-style forecast RMSE = 21.24 MW
+Lag-1 persistence RMSE = 23.60 MW
+RNN RMSE = 46.21 MW
 ```
 
-## Robustness And Statistics
+This step does not report COVE because it only predicts power. COVE starts after dispatch.
 
-This reproduces the year-by-year horizon comparisons and statistical checks.
+## Step 2: Rolling-Horizon Gurobi
 
 ```bash
-./venv/bin/python strategy_model/optimization/analyze_forecast_backtest_robustness.py
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/rolling horizon"
+../../venv/bin/python RUN_2_ROLLING_HORIZON.py
 ```
 
-Main outputs:
+This prints the causal ridge + Gurobi horizon comparison against baseload.
+
+Main result:
 
 ```text
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_robustness/yearly_horizon_results.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_robustness/yearly_win_counts.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_robustness/paired_statistical_tests.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_robustness/forecast_model_comparison.csv
+Best realistic horizon = 48 h
+COVE improvement vs baseload = 6.25%
 ```
 
-## Rolling-Horizon Gurobi
+This means ridge predicts a 48-hour window, Gurobi optimizes that window, the first 24 hours are executed, the battery state is updated, and the process repeats.
 
-The main Gurobi/MILP solver is:
-
-```text
-strategy_model/optimization/rolling_horizon_gurobi_dispatch.py
-```
-
-The full-dataset horizon result files are:
-
-```text
-strategy_model/optimization/rolling_horizon_gurobi_results/full_dataset_rolling_horizon_comparison.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/horizon_comparison_full_43y/rolling_horizon_comparison.csv
-strategy_model/optimization/rolling_horizon_gurobi_results/paper_ready_key_results.csv
-```
-
-## Different Scenarios
-
-This reproduces the uncertainty-aware scenario dispatch experiment.
+## Step 3: Different Scenarios
 
 ```bash
-./venv/bin/python strategy_model/optimization/run_uncertainty_aware_dispatch.py \
-  --variants single_recourse three_scenario_expected five_scenario_expected seven_scenario_expected ten_scenario_expected \
-  --nowcast-first-hour \
-  --gate-margin 0.0 \
-  --out-dir strategy_model/optimization/uncertainty_aware_dispatch_results
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scenarios"
+../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
 ```
 
-Main outputs:
+This prints the single-forecast and multi-scenario comparison against baseload.
+It uses the same 48-hour forecast lookahead selected in Step 2, but replans every hour so the scenario controller can share only the first action across possible futures.
+
+Main result:
 
 ```text
-strategy_model/optimization/uncertainty_aware_dispatch_results/uncertainty_aware_summary.csv
-strategy_model/optimization/uncertainty_aware_dispatch_results/final_breakthrough_summary.csv
+Best scenario count = 3 scenarios
+Revenue gain vs baseload = 30.19%
+COVE reduction vs baseload = 23.19%
 ```
 
-## B6 Verification
+## Clean Ladder Summary
 
-B6 is not the main paper result. It is the 2020 verification package requested by Chris.
+| Step | Result |
+| --- | ---: |
+| Baseload | 0.00% COVE improvement |
+| Causal ridge forecast | 21.24 MW RMSE; no COVE yet |
+| Causal ridge + 48h rolling-horizon Gurobi | 6.25% COVE improvement |
+| 3-scenario 48h hourly-replan dispatch | 23.19% COVE improvement |
+| Oracle upper bound | 32.83% COVE improvement |
 
-```bash
-./venv/bin/python strategy_model/optimization/B6_CANONICAL_RUNNER.py
-./venv/bin/python strategy_model/optimization/B6_FINAL_VALIDATE.py
-```
+## Figures Generated
 
-Main outputs:
+Each command regenerates figures in its own folder:
 
 ```text
-strategy_model/optimization/b6_final_results/David_B6_run_summary.csv
-strategy_model/optimization/b6_final_results/David_B6_QA_summary.csv
-strategy_model/optimization/b6_final_results/David_B6_frozen_config.json
+causal ridge regression/figures/step1_forecast_rmse_comparison.png
+rolling horizon/figures/step2_causal_horizon_improvement.png
+rolling horizon/figures/step2_causal_horizon_cove.png
+different scenarios/figures/step3_scenario_cove_improvement.png
+different scenarios/figures/step3_scenario_revenue_gain.png
 ```

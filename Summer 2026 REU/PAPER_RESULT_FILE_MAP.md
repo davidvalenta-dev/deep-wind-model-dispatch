@@ -1,225 +1,105 @@
 # Paper Result File Map
 
-This document maps the paper claims to the exact repository files that produced or store the numbers. Use this when writing the manuscript, answering Chris, or showing a reviewer how each result can be traced back to code.
+This file gives the current official paper-facing ladder. Use this map when writing the paper or showing a reviewer where each number comes from.
 
-## Main Paper Story
+## Official Ladder
 
-The paper should focus on three connected pieces:
+| Step | Question | Command | Main result |
+| --- | --- | --- | ---: |
+| 1 | Which power forecast is best? | `Summer 2026 REU/causal ridge regression/RUN_1_FORECAST_RMSE.py` | causal lag / ridge-style forecast, 21.24 MW RMSE |
+| 2 | Which deterministic rolling horizon is best? | `Summer 2026 REU/rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h horizon, 6.25% COVE improvement vs baseload |
+| 3 | Do forecast scenarios improve dispatch? | `Summer 2026 REU/different scenarios/RUN_3_SCENARIO_COMPARISON.py` | 3 scenarios, 23.19% COVE reduction vs baseload |
+| Context | What is the perfect-information upper bound? | printed by `RUN_2_ROLLING_HORIZON.py` | 168 h oracle, 32.83% COVE improvement vs baseload |
 
-1. Forecasting: causal ridge/lag-style forecasts for wind generation and price.
-2. Dispatch: rolling-horizon Gurobi/MILP optimization under storage constraints.
-3. Uncertainty: scenario-based dispatch using multiple possible wind and price futures.
+## Current Result Files
 
-B6 is a separate 2020 verification benchmark. It is useful for proving that the code mechanics, SoC rules, raw LMP revenue calculation, and planned-direct execution logic are correct, but it is not the main multi-year paper result.
-
-## One-Sentence Version
-
-The main paper numbers come from `run_uncertainty_aware_dispatch.py` and `forecast_backtest_rolling_horizons.py`; the shared Gurobi storage constraints are in `rolling_horizon_gurobi_dispatch.py`; COVE and revenue formulas are in `strategy_model/src/util.py`; and the B6 verification package is in `B6_CANONICAL_RUNNER.py` plus `b6_final_results/`.
-
-## Result Map
-
-| Paper topic | What it means | Main runner/code | Main result files | Figures |
-| --- | --- | --- | --- | --- |
-| Scenario dispatch | Gurobi sees several possible 24-hour wind/price futures and chooses an action that works across them | `strategy_model/optimization/run_uncertainty_aware_dispatch.py` | `strategy_model/optimization/uncertainty_aware_dispatch_results/final_breakthrough_summary.csv`; `strategy_model/optimization/uncertainty_aware_dispatch_results/uncertainty_aware_summary.csv` | `strategy_model/optimization/uncertainty_aware_dispatch_results/final_figure_01_revenue_breakthrough.png`; `final_figure_02_cove_breakthrough.png`; `final_figure_03_example_week_dispatch.png`; `final_figure_04_uncertainty_pipeline.png` |
-| Best scenario result | Seven-scenario closed-loop gated case | Same as above | Same as above | Same as above |
-| Causal ridge / forecast backtest | Forecast model predicts future generation and price; Gurobi dispatches using those predictions | `strategy_model/optimization/forecast_backtest_rolling_horizons.py` | `strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_summary.csv`; `forecast_accuracy_by_lead.csv`; `forecast_dispatch_24h.csv`; `forecast_dispatch_48h.csv`; `forecast_dispatch_72h.csv`; `forecast_dispatch_168h.csv` | `figure_01_forecast_vs_oracle_improvement.png`; `figure_02_realized_cove_by_horizon.png`; `figure_03_realized_value_by_horizon.png`; `figure_04_forecast_error_by_lead.png`; `figure_05_forecast_example_week.png` |
-| Oracle upper bound | Gurobi gets actual future wind and price, so it is not deployable; it is the best-case comparison | `strategy_model/optimization/forecast_backtest_rolling_horizons.py` | `strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/oracle_dispatch_24h.csv`; `oracle_dispatch_48h.csv`; `oracle_dispatch_72h.csv`; `oracle_dispatch_168h.csv`; summarized in `forecast_dispatch_summary.csv` | Same forecast backtest figures |
-| Rolling-horizon Gurobi solver | The actual MILP/Gurobi storage model: charge, discharge, direct wind, delivered power, SoC, constraints | `strategy_model/optimization/rolling_horizon_gurobi_dispatch.py` | Used by older rolling-horizon/COVE-DV experiments; exact output depends on caller | `strategy_model/optimization/rolling_horizon_gurobi_results/` |
-| Robustness/statistics | Year-by-year horizon comparison, confidence intervals, forecast method comparison, sensitivity | `strategy_model/optimization/analyze_forecast_backtest_robustness.py` | `strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_robustness/yearly_horizon_results.csv`; `paired_statistical_tests.csv`; `yearly_win_counts.csv`; `forecast_model_comparison.csv`; `sensitivity_results.csv` | `figure_01_yearly_horizon_results.png`; `figure_02_48h_confidence_intervals.png`; `figure_03_forecast_model_comparison.png`; `figure_04_sensitivity_analysis.png` |
-| Revenue and COVE formulas | Revenue is sum of power times price; COVE is cost divided by valued revenue | `strategy_model/src/util.py` | Called by the dispatch runners | No standalone figure |
-| B6 verification | Frozen 2020 check requested by Chris: A/B/C x Oracle/Causal using raw realized LMP | `strategy_model/optimization/B6_CANONICAL_RUNNER.py` | `strategy_model/optimization/b6_final_results/David_B6_run_summary.csv`; `David_B6_QA_summary.csv`; six hourly CSV files; logs | Not the main paper figures |
-
-## Scenario Dispatch Numbers
-
-Use these for the scenario/uncertainty part of the paper.
-
-Source file:
-
-`strategy_model/optimization/uncertainty_aware_dispatch_results/final_breakthrough_summary.csv`
-
-Key result:
-
-| Method | Test period | Baseload revenue | Dispatch revenue | Revenue gain vs baseload | Baseload COVE | Dispatch COVE | COVE reduction vs baseload |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Seven-scenario closed-loop gated | 2014-01-01 to 2023-12-29 | $180,653,095.06 | $212,097,824.78 | 17.41% | 0.324684 | 0.276547 | 14.83% |
-| Five-scenario closed-loop gated | 2014-01-01 to 2023-12-29 | $180,653,095.06 | $211,596,820.64 | 17.13% | 0.324684 | 0.277202 | 14.62% |
-| Three-scenario closed-loop gated | 2014-01-01 to 2023-12-29 | $180,653,095.06 | $210,298,180.87 | 16.41% | 0.324684 | 0.278914 | 14.10% |
-| Single forecast closed-loop gated | 2014-01-01 to 2023-12-29 | $180,653,095.06 | $209,947,648.70 | 16.22% | 0.324684 | 0.279380 | 13.95% |
-| Ten-scenario closed-loop gated | 2014-01-01 to 2023-12-29 | $180,653,095.06 | $205,263,577.22 | 13.62% | 0.324684 | 0.285755 | 11.99% |
-
-How to describe it:
-
-The seven-scenario controller was the strongest scenario result in this run. The ten-scenario controller was worse because adding more scenarios can make the controller too conservative; more futures do not automatically mean better dispatch.
-
-What not to claim:
-
-Do not say this is the B6 result. Do not say this is the same as the 2020 frozen benchmark. It is the multi-year scenario dispatch result.
-
-## Causal Ridge / Forecast Backtest Numbers
-
-Use these for the causal forecast and horizon comparison part of the paper.
-
-Source files:
-
-- `strategy_model/optimization/forecast_backtest_rolling_horizons.py`
-- `strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_summary.csv`
-- `strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/experiment_metadata.json`
-
-Metadata from the result folder:
-
-| Item | Value |
+| Result | File |
 | --- | --- |
-| Forecast training period in metadata | 1980-01-01 01:00:00 through 2013-12-31 23:00:00 |
-| Backtest period in metadata | 2014-01-01 00:00:00 through 2023-12-29 20:00:00 |
-| Storage | CAES |
-| Storage rating | 100 MW |
-| Storage duration | 24 hours |
-| Capacity | 2400 MWh |
-| RTE | 0.55 |
-| Grid limit | 249 MW |
-| Best reserve-adjusted causal forecast horizon | 48 hours |
-| Direct-export reserve | 75 MW |
+| Forecast model comparison | `Summer 2026 REU/causal ridge regression/results/forecast_model_rmse_comparison.csv` |
+| Deterministic rolling horizon summary | `Summer 2026 REU/rolling horizon/results/causal_ridge_rolling_horizon_summary.csv` |
+| Scenario summary | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/uncertainty_aware_summary.csv` |
+| Scenario metadata | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/experiment_metadata.json` |
 
-Key result:
+## Current Figures
 
-| Method | Horizon | Direct reserve | Revenue metric | Baseload revenue metric | COVE | Baseload COVE | COVE reduction |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Causal forecast + direct reserve | 24 h | 75 MW | 7,378,742.00 | 7,134,863.37 | 7.033181 | 7.273584 | 3.31% |
-| Causal forecast + direct reserve | 48 h | 75 MW | 7,610,576.00 | 7,134,863.37 | 6.818936 | 7.273584 | 6.25% |
-| Causal forecast + direct reserve | 72 h | 75 MW | 7,594,786.00 | 7,134,863.37 | 6.833112 | 7.273584 | 6.06% |
-| Causal forecast + direct reserve | 168 h | 75 MW | 7,544,994.00 | 7,134,863.37 | 6.878207 | 7.273584 | 5.44% |
-| Oracle | 24 h | 0 MW | 9,951,482.65 | 7,134,863.37 | 5.214904 | 7.273584 | 28.30% |
-| Oracle | 48 h | 0 MW | 10,388,770.32 | 7,134,863.37 | 4.995396 | 7.273584 | 31.32% |
-| Oracle | 72 h | 0 MW | 10,546,720.47 | 7,134,863.37 | 4.920584 | 7.273584 | 32.35% |
-| Oracle | 168 h | 0 MW | 10,622,594.82 | 7,134,863.37 | 4.885438 | 7.273584 | 32.83% |
-
-How to describe it:
-
-The reserve-adjusted causal forecast result is realistic because Gurobi uses forecasts rather than the actual future and realized execution follows the strict planned-direct rule. The 75 MW direct-export reserve is a robustness buffer against wind forecast underprediction. The oracle result is not realistic but shows the upper bound if future wind and price were known. In the causal forecast backtest, 48 hours was best; in the oracle case, longer lookahead helped more because there was no forecast error.
-
-What not to claim:
-
-Do not mix the `revenue_metric` values from this normalized-price backtest with the raw USD values from the scenario result or B6. They are different result sets.
-
-## Robustness and Statistics Files
-
-Use these when the paper needs year-by-year support.
-
-Folder:
-
-`strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_robustness/`
-
-Important files:
-
-| File | What it supports |
+| Step | Figure |
 | --- | --- |
-| `yearly_horizon_results.csv` | Year-by-year causal horizon results |
-| `yearly_win_counts.csv` | Counts which horizon won each year |
-| `paired_statistical_tests.csv` | Confidence intervals and sign-flip tests |
-| `forecast_model_comparison.csv` | Forecast model comparison |
-| `sensitivity_results.csv` | Storage/sensitivity checks |
-| `analysis_metadata.json` | Analysis settings and caveats |
+| Forecast RMSE | `Summer 2026 REU/causal ridge regression/figures/step1_forecast_rmse_comparison.png` |
+| Horizon COVE improvement | `Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_improvement.png` |
+| Horizon COVE values | `Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_cove.png` |
+| Scenario COVE improvement | `Summer 2026 REU/different scenarios/figures/step3_scenario_cove_improvement.png` |
+| Scenario revenue gain | `Summer 2026 REU/different scenarios/figures/step3_scenario_revenue_gain.png` |
 
-Important robustness result:
+## Step 1: Forecast Model
 
-| Comparison | Years | 48h wins | Mean value difference | 95% CI | p-value |
-| --- | ---: | ---: | ---: | --- | ---: |
-| 48h minus 24h | 9 | 9 | 24,600.95 | [7,880.34, 47,391.92] | 0.003906 |
-| 48h minus 72h | 9 | 6 | 737.69 | [-105.91, 1,604.58] | 0.156250 |
-| 48h minus 168h | 9 | 8 | 5,737.26 | [1,290.18, 12,917.40] | 0.019531 |
+| Model | RMSE MW | MAE MW | Bias MW |
+| --- | ---: | ---: | ---: |
+| causal_lag_prediction_mw | 21.24 | 13.62 | -0.18 |
+| lag1_persistence_prediction_mw | 23.60 | 14.55 | 0.00 |
+| speed_power_curve_prediction_mw | 41.86 | 30.79 | -1.34 |
+| rnn_preds | 46.21 | 33.31 | -3.62 |
+| physics_preds | 50.85 | 36.49 | 8.59 |
+| prob_preds | 71.69 | 50.42 | -0.73 |
 
-Horizon wins:
+Step 1 only checks prediction accuracy. It does not have revenue or COVE because dispatch has not happened yet.
 
-| Horizon | Years won |
-| ---: | ---: |
-| 24 h | 0 |
-| 48 h | 6 |
-| 72 h | 2 |
-| 168 h | 1 |
+## Step 2: Deterministic Rolling-Horizon Gurobi
 
-How to describe it:
+The deterministic case uses the causal ridge forecast, a 75 MW direct-export reserve, Nora/Chris storage constraints, and baseload as the comparison.
 
-The 48-hour horizon is the strongest practical horizon in the robustness analysis, especially compared with 24 hours and 168 hours. The 48-hour versus 72-hour difference is smaller and less statistically decisive.
+| Horizon | Direct reserve | Revenue metric | COVE | Baseload COVE | COVE improvement |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 24 h | 75 MW | 7,378,742.01 | 7.033181 | 7.273584 | 3.31% |
+| 48 h | 75 MW | 7,610,575.51 | 6.818936 | 7.273584 | 6.25% |
+| 72 h | 75 MW | 7,594,786.43 | 6.833112 | 7.273584 | 6.06% |
+| 168 h | 75 MW | 7,544,993.73 | 6.878207 | 7.273584 | 5.44% |
 
-## Shared Gurobi Dispatch Solver
+The 48-hour deterministic horizon is best because it looks far enough ahead to use storage, but not so far that forecast errors dominate the plan.
 
-Important file:
+## Step 3: Scenario Dispatch
 
-`strategy_model/optimization/rolling_horizon_gurobi_dispatch.py`
+The scenario case keeps the causal ridge forecast and 48-hour Gurobi lookahead. It changes the controller from one predicted future to multiple possible futures and executes only the first hour before replanning.
 
-This file contains:
+| Method | Revenue | Revenue gain vs baseload | COVE | COVE reduction vs baseload |
+| --- | ---: | ---: | ---: | ---: |
+| Baseload | 271,870,402.70 | 0.00% | 0.215746 | 0.00% |
+| 1 forecast | 337,322,348.04 | 24.07% | 0.173884 | 19.40% |
+| 3 scenarios | 353,949,333.45 | 30.19% | 0.165716 | 23.19% |
+| 5 scenarios | 353,117,910.43 | 29.88% | 0.166106 | 23.01% |
+| 7 scenarios | 353,220,656.50 | 29.92% | 0.166058 | 23.03% |
+| 10 scenarios | 341,858,797.71 | 25.74% | 0.171577 | 20.47% |
 
-- `solve_window(...)`: builds the Gurobi MILP.
-- `continuous_baseload(...)`: builds the baseload comparison.
-- `cove_value(...)`: calls the COVE function.
-- `check_constraints(...)`: checks physical constraint violations.
+The three-scenario controller is best in the full 48-hour ladder run. Five and seven scenarios are very close. Ten scenarios performs worse because it becomes too conservative.
 
-Main constraints inside `solve_window(...)`:
+## Constraints Confirmed
 
-| Constraint | Meaning |
-| --- | --- |
-| `soc[0] == start_soc` | Battery starts each optimization window at the carried-forward SoC |
-| `soc[hours] == start_soc` when terminal policy is equal-initial | Terminal SoC condition for that window |
-| `p_dir[t] + p_ch[t] <= generation[t]` | Storage charges only from wind; no grid charging |
-| `p_delivered[t] == p_dir[t] + p_dis[t]` | Delivered power equals direct wind plus discharge |
-| `p_ch[t] <= rating * u[t]` | Binary charge mode |
-| `p_dis[t] <= rating * (1 - u[t])` | Binary discharge mode |
-| `p_dis[t] / rte <= soc[t] - min_soc` | Cannot discharge energy that is not available above minimum SoC |
-| `soc[t + 1] == soc[t] + p_ch[t] - p_dis[t] / rte` | Chronological battery update |
-| Objective `sum(price[t] * p_delivered[t])` | Maximize value/revenue over the planning window |
+The current scenario result uses:
 
-## Revenue and COVE Formula Files
+| Constraint or parameter | Value |
+| --- | ---: |
+| Storage power | 100 MW |
+| Storage duration | 10 h |
+| Energy capacity | 1000 MWh |
+| Minimum SoC | 200 MWh |
+| Initial SoC | 600 MWh |
+| Round-trip efficiency | 55% |
+| Grid export limit | 249 MW |
+| SoC indexing | N+1 |
+| Charging source | wind only |
+| Grid charging | no |
+| Simultaneous charge/discharge | no |
+| Chronological SoC carryover | yes |
+| Realized max grid violation | 0 |
+| Realized max SoC violation | 0 |
+| Realized max energy-balance violation | about `1e-14`, numerical roundoff |
 
-Important file:
+## Archived Material
 
-`strategy_model/src/util.py`
+Older figures and older scenario outputs were moved to:
 
-Functions:
+```text
+_archive_legacy_summer_reu_figures_20260720/
+_archive_legacy_summer_reu_outputs_20260720/
+```
 
-- `revenue(power, price)`: computes `sum(power * price)`.
-- `cove(power, price, ...)`: computes annualized cost divided by revenue/value.
-- `get_storage_specs(...)`: gets storage cost and efficiency assumptions.
-- `get_rte(...)`: gets round-trip efficiency for storage type.
-
-Simple explanation:
-
-Revenue measures how much money/value the delivered power earns. COVE measures cost per valued energy. Lower COVE is better.
-
-## B6 Verification Package
-
-Use this only as validation, not as the main paper result.
-
-Files:
-
-| File/folder | Purpose |
-| --- | --- |
-| `strategy_model/optimization/B6_CANONICAL_RUNNER.py` | Final frozen 2020 benchmark runner |
-| `strategy_model/optimization/B6_FINAL_VALIDATE.py` | Verifies rows, revenue, SoC, and constraints |
-| `strategy_model/optimization/b6_final_results/David_B6_run_summary.csv` | Six-run summary |
-| `strategy_model/optimization/b6_final_results/David_B6_QA_summary.csv` | QA checks |
-| `strategy_model/optimization/b6_final_results/David_B6_frozen_config.json` | Frozen configuration |
-| `strategy_model/optimization/b6_final_results/*.csv` | Six hourly output files |
-
-What B6 proves:
-
-B6 proves the corrected code can run a clean 2020 benchmark with raw realized LMP, common annual SoC rule, planned-direct wind execution, zero constraint violations, and reproducible hourly CSVs.
-
-What B6 does not prove:
-
-B6 is not the full nine-year paper result. It is a clean verification package.
-
-## Suggested Paper Wording
-
-Use this wording to avoid mixing result sets:
-
-"The main paper experiments evaluate forecast-aware and scenario-aware rolling-horizon dispatch over the 2014-2023 Pyron backtest period. The scenario result is reported using realized raw revenue and COVE reduction relative to baseload. A separate B6 2020 benchmark is used only as a verification package to confirm the MILP implementation, SoC accounting, direct-wind execution, and raw-LMP revenue calculation under a frozen configuration."
-
-## Do Not Mix These Numbers
-
-| Result set | Period | Main purpose | Main file |
-| --- | --- | --- | --- |
-| Forecast backtest | 2014-2023 | Horizon/oracle/causal comparison | `forecast_dispatch_summary.csv` |
-| Scenario dispatch | 2014-2023 | Main uncertainty-aware paper result | `final_breakthrough_summary.csv` |
-| Robustness | Complete years inside 2014-2023 | Yearly statistics and CI | `forecast_backtest_robustness/` |
-| B6 | 2020 only | Verification requested by Chris | `b6_final_results/` |
-| COVE-DV / teacher-student | Earlier exploratory work | Historical ML idea, not the main final paper result | `cove_dv_*` folders |
+They are preserved for history but are not the current paper-facing ladder.

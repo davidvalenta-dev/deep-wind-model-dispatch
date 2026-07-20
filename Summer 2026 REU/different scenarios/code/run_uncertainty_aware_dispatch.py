@@ -17,9 +17,9 @@ import pandas as pd
 from gurobipy import GRB
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 BASE_DIR = Path(__file__).resolve().parent
-OUT = BASE_DIR / "uncertainty_aware_dispatch_results"
+OUT = BASE_DIR.parents[0] / "results" / "scenario_48h_full_ladder"
 
 sys.path.insert(0, str(BASE_DIR))
 import run_nora_matching_forecast_horizons as base  # noqa: E402
@@ -30,7 +30,7 @@ from run_best_forecast_dispatch_search import (  # noqa: E402
 )
 
 
-HORIZON = 24
+HORIZON = 48
 SCENARIO_SPECS = {
     "three_scenario_expected": {
         "weights": np.array([0.50, 0.25, 0.25], dtype=float),
@@ -529,9 +529,31 @@ def main() -> None:
     global OUT
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-origins", type=int, default=None, help="Limit hourly origins for quick tests.")
-    parser.add_argument("--variants", nargs="+", default=["single_recourse", "three_scenario_expected", "three_scenario_risk25"])
-    parser.add_argument("--nowcast-first-hour", action="store_true", help="Use actual current wind/price for the hour being executed, forecasts/scenarios after that.")
-    parser.add_argument("--gate-margin", type=float, default=None, help="Fallback to baseload-style action unless optimized forecast value beats forecast baseload by this fraction.")
+    parser.add_argument(
+        "--variants",
+        nargs="+",
+        default=[
+            "single_recourse",
+            "three_scenario_expected",
+            "five_scenario_expected",
+            "seven_scenario_expected",
+            "ten_scenario_expected",
+        ],
+    )
+    parser.add_argument(
+        "--nowcast-first-hour",
+        dest="nowcast_first_hour",
+        action="store_true",
+        default=True,
+        help="Use actual current wind/price for the hour being executed, forecasts/scenarios after that.",
+    )
+    parser.add_argument(
+        "--no-nowcast-first-hour",
+        dest="nowcast_first_hour",
+        action="store_false",
+        help="Disable the official current-hour nowcast setting.",
+    )
+    parser.add_argument("--gate-margin", type=float, default=0.0, help="Fallback to baseload-style action unless optimized forecast value beats forecast baseload by this fraction.")
     parser.add_argument("--out-dir", type=Path, default=OUT, help="Output directory for labels, figures, and summary files.")
     parser.add_argument(
         "--calibration-mode",
@@ -569,7 +591,7 @@ def main() -> None:
     if args.max_origins is not None:
         print(f"Quick run limited to {args.max_origins} hourly origins.", flush=True)
 
-    print("Building 24h hourly wind and price forecasts...", flush=True)
+    print(f"Building {HORIZON}h hourly wind and price forecasts...", flush=True)
     wind_center, price_center, models = build_forecasts(df, forecast_train_end, origins)
     baseline_target_mw = float(df["power_generated"].iloc[:train_end].mean())
     needed_quantiles = sorted({q for spec in SCENARIO_SPECS.values() for q in (spec["wind_quantiles"] + spec["price_quantiles"])})

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import csv
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -24,11 +26,14 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 RESULTS = HERE / "results"
 FIGURES = HERE / "figures"
 RMSE_FILE = RESULTS / "forecast_model_rmse_comparison.csv"
+COMPARE_SCRIPT = HERE / "code" / "compare_forecast_rmse.py"
+PREDICTIONS_FILE = RESULTS / "causal_lag_forecast_outputs" / "causal_lag_forecast_predictions.csv"
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -38,8 +43,17 @@ def load_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def rebuild_rmse_table() -> None:
+    subprocess.run(
+        [sys.executable, str(COMPARE_SCRIPT), "--output", str(RMSE_FILE)],
+        cwd=HERE,
+        check=True,
+    )
+
+
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
+    rebuild_rmse_table()
     rows = load_rows(RMSE_FILE)
     rows = sorted(rows, key=lambda row: float(row["rmse_mw"]))
 
@@ -80,7 +94,58 @@ def main() -> None:
     out = FIGURES / "step1_forecast_rmse_comparison.png"
     fig.savefig(out, facecolor="white", bbox_inches="tight")
     plt.close(fig)
-    print(f"\nFigure saved: {out}")
+
+    mae = [float(row["mae_mw"]) for row in rows]
+    fig, ax = plt.subplots(figsize=(9.8, 5.6), dpi=180)
+    ax.scatter(rmse, mae, s=180, color=colors, edgecolor="#111827", linewidth=0.8)
+    for label, x_value, y_value in zip(labels, rmse, mae):
+        ax.annotate(label, (x_value, y_value), xytext=(8, 5), textcoords="offset points", fontsize=8)
+    ax.set_xlabel("RMSE (MW, lower is better)")
+    ax.set_ylabel("MAE (MW, lower is better)")
+    ax.set_title("Forecast Error Tradeoff", fontweight="bold")
+    ax.grid(color="#E5E7EB")
+    fig.tight_layout()
+    out2 = FIGURES / "step1_rmse_mae_tradeoff.png"
+    fig.savefig(out2, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+    if PREDICTIONS_FILE.exists():
+        predictions = pd.read_csv(PREDICTIONS_FILE, parse_dates=["datetime"])
+        week = predictions.iloc[:168].copy()
+        fig, ax = plt.subplots(figsize=(12, 5.6), dpi=180)
+        ax.plot(week["datetime"], week["actual_power_mw"], label="Actual power", color="#111827", linewidth=2.0)
+        ax.plot(week["datetime"], week["causal_lag_prediction_mw"], label="Causal lag/ridge", color="#1B9E77", linewidth=1.8)
+        ax.plot(week["datetime"], week["lag1_persistence_prediction_mw"], label="Lag-1 persistence", color="#F59E0B", linewidth=1.4, alpha=0.85)
+        ax.set_ylabel("Power (MW)")
+        ax.set_title("Example Forecast Week", fontweight="bold")
+        ax.legend(frameon=False, ncol=3)
+        ax.grid(color="#E5E7EB")
+        fig.autofmt_xdate(rotation=20)
+        fig.tight_layout()
+        out3 = FIGURES / "step1_example_forecast_week.png"
+        fig.savefig(out3, facecolor="white", bbox_inches="tight")
+        plt.close(fig)
+
+        errors = predictions["causal_lag_prediction_mw"] - predictions["actual_power_mw"]
+        fig, ax = plt.subplots(figsize=(9.5, 5.4), dpi=180)
+        ax.hist(errors, bins=70, color="#2563EB", alpha=0.85)
+        ax.axvline(0, color="#111827", linewidth=1.2)
+        ax.set_xlabel("Prediction error (MW)")
+        ax.set_ylabel("Hours")
+        ax.set_title("Causal Lag/Ridge Error Distribution", fontweight="bold")
+        ax.grid(axis="y", color="#E5E7EB")
+        fig.tight_layout()
+        out4 = FIGURES / "step1_causal_error_distribution.png"
+        fig.savefig(out4, facecolor="white", bbox_inches="tight")
+        plt.close(fig)
+    else:
+        out3 = None
+        out4 = None
+
+    print("\nFigures saved:")
+    for figure in [out, out2, out3, out4]:
+        if figure is not None:
+            print(f"  {figure}")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,11 @@
 # Summer 2026 REU Reproduction Ladder
 
-Run one command in each folder. The three folders are meant to be read like a ladder:
+Run one command in each folder. The first three folders are the realistic ladder, and the oracle folder is the perfect-future ceiling:
 
 1. Forecast quality: choose the forecast model.
 2. Rolling-horizon dispatch: use that forecast inside Gurobi.
 3. Scenario dispatch: add multiple possible forecast futures.
+4. Oracle upper bound: show the best possible perfect-future Gurobi result.
 
 ## Step 1: Causal Ridge Regression
 
@@ -25,6 +26,14 @@ RNN RMSE = 46.21 MW
 
 This step does not report COVE because it only predicts power. COVE starts after dispatch.
 
+Extra figures generated:
+
+```text
+figures/step1_rmse_mae_tradeoff.png
+figures/step1_example_forecast_week.png
+figures/step1_causal_error_distribution.png
+```
+
 ## Step 2: Rolling-Horizon Gurobi
 
 ```bash
@@ -42,6 +51,14 @@ COVE improvement vs baseload = 6.25%
 ```
 
 This means ridge predicts a 48-hour window, Gurobi optimizes that window, the first 24 hours are executed, the battery state is updated, and the process repeats.
+
+Extra figures generated:
+
+```text
+figures/step2_revenue_by_horizon.png
+figures/step2_runtime_value_tradeoff.png
+figures/step2_3d_horizon_revenue_cove.png
+```
 
 ## Step 3: Different Scenarios
 
@@ -61,6 +78,30 @@ Revenue gain vs baseload = 30.19%
 COVE reduction vs baseload = 23.19%
 ```
 
+Extra figures generated:
+
+```text
+figures/step3_revenue_cove_tradeoff.png
+figures/step3_ladder_revenue_progression.png
+figures/step3_3d_scenario_revenue_cove.png
+```
+
+## Step 4: Oracle Upper Bound
+
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
+../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
+```
+
+This prints the perfect-future Gurobi horizon comparison. It is not realistic because Gurobi sees actual future wind and price.
+
+Main result:
+
+```text
+Best oracle horizon = 168 h
+COVE improvement vs baseload = 32.83%
+```
+
 ## Clean Ladder Summary
 
 | Step | Result |
@@ -77,8 +118,21 @@ Each command regenerates figures in its own folder:
 
 ```text
 causal ridge regression/figures/step1_forecast_rmse_comparison.png
+causal ridge regression/figures/step1_rmse_mae_tradeoff.png
+causal ridge regression/figures/step1_example_forecast_week.png
+causal ridge regression/figures/step1_causal_error_distribution.png
 rolling horizon/figures/step2_causal_horizon_improvement.png
 rolling horizon/figures/step2_causal_horizon_cove.png
+rolling horizon/figures/step2_revenue_by_horizon.png
+rolling horizon/figures/step2_runtime_value_tradeoff.png
+rolling horizon/figures/step2_3d_horizon_revenue_cove.png
 different scenarios/figures/step3_scenario_cove_improvement.png
 different scenarios/figures/step3_scenario_revenue_gain.png
+different scenarios/figures/step3_revenue_cove_tradeoff.png
+different scenarios/figures/step3_ladder_revenue_progression.png
+different scenarios/figures/step3_3d_scenario_revenue_cove.png
+oracle upper bound/figures/step4_oracle_improvement_by_horizon.png
+oracle upper bound/figures/step4_oracle_cove_by_horizon.png
+oracle upper bound/figures/step4_oracle_runtime_value_tradeoff.png
+oracle upper bound/figures/step4_3d_oracle_revenue_cove.png
 ```

@@ -17,7 +17,7 @@ import pandas as pd
 from gurobipy import GRB
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 OUT = Path(__file__).resolve().parent / "nora_matching_forecast_horizon_results"
 DATA_PATH = REPO_ROOT / "data" / "processed" / "dataset_1980-2023_withloads_fix.csv"
 NORA_PATH = Path(os.environ.get("NORA_WEEK_XLSX", "/Users/davidvalenta/Downloads/january6-12.xlsx"))

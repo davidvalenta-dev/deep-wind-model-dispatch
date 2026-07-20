@@ -24,6 +24,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 
 RESULTS = HERE / "results"
@@ -90,6 +91,8 @@ def main() -> None:
     horizons = [int(float(row["horizon_hours"])) for row in causal]
     gains = [float(row["improvement_vs_baseload_pct"]) for row in causal]
     cove = [float(row["cove"]) for row in causal]
+    revenue = [float(row["revenue_metric"]) for row in causal]
+    runtime = [float(row["solver_runtime_seconds"]) for row in causal]
 
     fig, ax = plt.subplots(figsize=(8.8, 5.2), dpi=180)
     bars = ax.bar([f"{h} h" for h in horizons], gains, color="#2563EB")
@@ -121,6 +124,48 @@ def main() -> None:
     fig.savefig(out2, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
+    fig, ax = plt.subplots(figsize=(8.8, 5.2), dpi=180)
+    bars = ax.bar([f"{h} h" for h in horizons], [value / 1e6 for value in revenue], color="#0F766E")
+    ax.set_ylabel("Revenue metric (millions)")
+    ax.set_title("Realized Revenue by Planning Horizon", fontweight="bold")
+    ax.grid(axis="y", color="#E5E7EB")
+    ax.set_axisbelow(True)
+    for bar, value in zip(bars, revenue):
+        ax.text(bar.get_x() + bar.get_width() / 2, value / 1e6 + 0.025, f"{value/1e6:.2f}M", ha="center")
+    fig.tight_layout()
+    out3 = FIGURES / "step2_revenue_by_horizon.png"
+    fig.savefig(out3, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8.8, 5.2), dpi=180)
+    ax.scatter(runtime, gains, s=[80 + h for h in horizons], color="#7C3AED", alpha=0.85)
+    for h, x_value, y_value in zip(horizons, runtime, gains):
+        ax.annotate(f"{h} h", (x_value, y_value), xytext=(7, 5), textcoords="offset points")
+    ax.set_xlabel("Solver runtime (seconds)")
+    ax.set_ylabel("COVE improvement vs baseload (%)")
+    ax.set_title("Runtime vs Dispatch Value", fontweight="bold")
+    ax.grid(color="#E5E7EB")
+    fig.tight_layout()
+    out4 = FIGURES / "step2_runtime_value_tradeoff.png"
+    fig.savefig(out4, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(8.4, 6.4), dpi=180)
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot(horizons, [value / 1e6 for value in revenue], cove, color="#2563EB", linewidth=2.2)
+    ax.scatter(horizons, [value / 1e6 for value in revenue], cove, color="#EF4444", s=55)
+    for h, rev, cove_value in zip(horizons, revenue, cove):
+        ax.text(h, rev / 1e6, cove_value, f"{h}h", fontsize=9)
+    ax.set_xlabel("Planning horizon (h)")
+    ax.set_ylabel("Revenue metric (M)")
+    ax.set_zlabel("COVE")
+    ax.set_title("3D Horizon View: More Lookahead Is Not Always Better", fontweight="bold")
+    ax.view_init(elev=24, azim=-52)
+    fig.tight_layout()
+    out5 = FIGURES / "step2_3d_horizon_revenue_cove.png"
+    fig.savefig(out5, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
     if oracle:
         best_oracle = max(oracle, key=lambda row: float(row["improvement_vs_baseload_pct"]))
         print("\nOracle context only, not realistic:")
@@ -129,7 +174,9 @@ def main() -> None:
             f"{float(best_oracle['improvement_vs_baseload_pct']):.2f}% COVE improvement"
         )
 
-    print(f"\nFigures saved:\n  {out1}\n  {out2}")
+    print("\nFigures saved:")
+    for figure in [out1, out2, out3, out4, out5]:
+        print(f"  {figure}")
 
 
 if __name__ == "__main__":

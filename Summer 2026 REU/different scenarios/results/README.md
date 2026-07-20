@@ -50,6 +50,9 @@ That command writes:
 ```text
 Summer 2026 REU/different scenarios/figures/step3_scenario_cove_improvement.png
 Summer 2026 REU/different scenarios/figures/step3_scenario_revenue_gain.png
+Summer 2026 REU/different scenarios/figures/step3_revenue_cove_tradeoff.png
+Summer 2026 REU/different scenarios/figures/step3_ladder_revenue_progression.png
+Summer 2026 REU/different scenarios/figures/step3_3d_scenario_revenue_cove.png
 ```
 
 ## Key Takeaway

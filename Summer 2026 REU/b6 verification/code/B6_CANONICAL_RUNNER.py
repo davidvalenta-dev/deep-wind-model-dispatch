@@ -655,7 +655,7 @@ def write_hourly(labels: pd.DataFrame, output_path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    default_repo = Path(__file__).resolve().parents[2]
+    default_repo = Path(__file__).resolve().parents[3]
     parser.add_argument("--repo", type=Path, default=default_repo)
     parser.add_argument(
         "--out",

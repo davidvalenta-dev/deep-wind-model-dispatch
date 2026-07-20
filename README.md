@@ -1,9 +1,10 @@
 # Deep Wind Model Dispatch
 
-This repository contains the Summer 2026 REU work on forecast-aware dispatch for a hybrid wind farm with energy storage. The final paper-facing workflow is organized as a ladder:
+This repository contains the Summer 2026 REU work on forecast-aware dispatch for a hybrid wind farm with energy storage. The final paper-facing workflow is organized as a realistic ladder plus an oracle upper bound:
 
 ```text
 baseload -> choose forecast model -> choose rolling window -> choose scenario count
+                                      -> compare with oracle upper bound
 ```
 
 The clean reproduction folder is:
@@ -25,6 +26,8 @@ The final realistic method is:
 ```text
 causal ridge forecast + 48-hour Gurobi lookahead + 3-scenario dispatch
 ```
+
+The oracle upper bound is not realistic. It gives Gurobi the actual future wind and price to show the ceiling: `168 h oracle = 32.83% COVE improvement`.
 
 ## Run The Ladder
 
@@ -86,19 +89,52 @@ Output:
 
 Three scenarios is the best tested case in the current 48-hour ladder. Five and seven are very close; ten is worse because it becomes too conservative.
 
+### 4. Oracle Upper Bound
+
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
+../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
+```
+
+Output:
+
+| Horizon | COVE | COVE improvement vs baseload | Revenue metric |
+| ---: | ---: | ---: | ---: |
+| 24 h | 5.214904 | 28.30% | 9,951,483.00 |
+| 48 h | 4.995396 | 31.32% | 10,388,770.32 |
+| 72 h | 4.920584 | 32.35% | 10,546,720.47 |
+| 168 h | 4.885438 | 32.83% | 10,622,594.82 |
+
+The 168-hour oracle is the best upper-bound case because it sees the most future information.
+
 ## Current Figures
 
 | Figure | Path |
 | --- | --- |
 | Forecast RMSE | [`Summer 2026 REU/causal ridge regression/figures/step1_forecast_rmse_comparison.png`](Summer%202026%20REU/causal%20ridge%20regression/figures/step1_forecast_rmse_comparison.png) |
+| Forecast RMSE/MAE tradeoff | [`Summer 2026 REU/causal ridge regression/figures/step1_rmse_mae_tradeoff.png`](Summer%202026%20REU/causal%20ridge%20regression/figures/step1_rmse_mae_tradeoff.png) |
+| Forecast example week | [`Summer 2026 REU/causal ridge regression/figures/step1_example_forecast_week.png`](Summer%202026%20REU/causal%20ridge%20regression/figures/step1_example_forecast_week.png) |
+| Forecast error distribution | [`Summer 2026 REU/causal ridge regression/figures/step1_causal_error_distribution.png`](Summer%202026%20REU/causal%20ridge%20regression/figures/step1_causal_error_distribution.png) |
 | Horizon improvement | [`Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_improvement.png`](Summer%202026%20REU/rolling%20horizon/figures/step2_causal_horizon_improvement.png) |
 | Horizon COVE | [`Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_cove.png`](Summer%202026%20REU/rolling%20horizon/figures/step2_causal_horizon_cove.png) |
+| Horizon revenue | [`Summer 2026 REU/rolling horizon/figures/step2_revenue_by_horizon.png`](Summer%202026%20REU/rolling%20horizon/figures/step2_revenue_by_horizon.png) |
+| Horizon runtime/value tradeoff | [`Summer 2026 REU/rolling horizon/figures/step2_runtime_value_tradeoff.png`](Summer%202026%20REU/rolling%20horizon/figures/step2_runtime_value_tradeoff.png) |
+| Horizon 3D tradeoff | [`Summer 2026 REU/rolling horizon/figures/step2_3d_horizon_revenue_cove.png`](Summer%202026%20REU/rolling%20horizon/figures/step2_3d_horizon_revenue_cove.png) |
 | Scenario COVE improvement | [`Summer 2026 REU/different scenarios/figures/step3_scenario_cove_improvement.png`](Summer%202026%20REU/different%20scenarios/figures/step3_scenario_cove_improvement.png) |
 | Scenario revenue gain | [`Summer 2026 REU/different scenarios/figures/step3_scenario_revenue_gain.png`](Summer%202026%20REU/different%20scenarios/figures/step3_scenario_revenue_gain.png) |
+| Scenario revenue/COVE tradeoff | [`Summer 2026 REU/different scenarios/figures/step3_revenue_cove_tradeoff.png`](Summer%202026%20REU/different%20scenarios/figures/step3_revenue_cove_tradeoff.png) |
+| Scenario ladder revenue | [`Summer 2026 REU/different scenarios/figures/step3_ladder_revenue_progression.png`](Summer%202026%20REU/different%20scenarios/figures/step3_ladder_revenue_progression.png) |
+| Scenario 3D tradeoff | [`Summer 2026 REU/different scenarios/figures/step3_3d_scenario_revenue_cove.png`](Summer%202026%20REU/different%20scenarios/figures/step3_3d_scenario_revenue_cove.png) |
+| Oracle upper bound | [`Summer 2026 REU/oracle upper bound/figures/step4_oracle_improvement_by_horizon.png`](Summer%202026%20REU/oracle%20upper%20bound/figures/step4_oracle_improvement_by_horizon.png) |
+| Oracle COVE | [`Summer 2026 REU/oracle upper bound/figures/step4_oracle_cove_by_horizon.png`](Summer%202026%20REU/oracle%20upper%20bound/figures/step4_oracle_cove_by_horizon.png) |
+| Oracle runtime/value tradeoff | [`Summer 2026 REU/oracle upper bound/figures/step4_oracle_runtime_value_tradeoff.png`](Summer%202026%20REU/oracle%20upper%20bound/figures/step4_oracle_runtime_value_tradeoff.png) |
+| Oracle 3D ceiling | [`Summer 2026 REU/oracle upper bound/figures/step4_3d_oracle_revenue_cove.png`](Summer%202026%20REU/oracle%20upper%20bound/figures/step4_3d_oracle_revenue_cove.png) |
 
 ## Storage And Dispatch Constraints
 
-The Gurobi/MILP dispatch model follows the Nora/Chris CAES setup:
+The Gurobi/MILP dispatch model follows the Nora/Chris operating constraints: wind-only charging, no grid charging, no simultaneous charge/discharge, grid export cap, chronological SoC, and N+1 SoC indexing.
+
+The scenario folder uses the 100 MW, 10 h Nora CAES setup:
 
 | Item | Value |
 | --- | ---: |
@@ -114,6 +150,8 @@ The Gurobi/MILP dispatch model follows the Nora/Chris CAES setup:
 | Simultaneous charge/discharge | no |
 | Chronological SoC carryover | yes |
 | SoC indexing | N+1 |
+
+The deterministic rolling-horizon and oracle folder use the saved 100 MW, 24 h CAES backtest table that produced the 6.25% and 32.83% results. The scenario folder uses the 100 MW, 10 h Nora CAES setup that produced the 23.19% result. The README reports the exact current folder outputs rather than mixing those configurations.
 
 The latest 48-hour scenario run had zero grid/SoC violations and only numerical roundoff around `1e-14` in balance checks.
 
@@ -150,9 +188,9 @@ The B6 package is a separate 2020 verification task requested by Chris. It is no
 
 Useful files:
 
-- [`Summer 2026 REU/rolling horizon/code/B6_CANONICAL_RUNNER.py`](Summer%202026%20REU/rolling%20horizon/code/B6_CANONICAL_RUNNER.py)
-- [`Summer 2026 REU/rolling horizon/code/B6_FINAL_VALIDATE.py`](Summer%202026%20REU/rolling%20horizon/code/B6_FINAL_VALIDATE.py)
-- [`Summer 2026 REU/rolling horizon/b6 verification/`](Summer%202026%20REU/rolling%20horizon/b6%20verification/)
+- [`Summer 2026 REU/b6 verification/code/B6_CANONICAL_RUNNER.py`](Summer%202026%20REU/b6%20verification/code/B6_CANONICAL_RUNNER.py)
+- [`Summer 2026 REU/b6 verification/code/B6_FINAL_VALIDATE.py`](Summer%202026%20REU/b6%20verification/code/B6_FINAL_VALIDATE.py)
+- [`Summer 2026 REU/b6 verification/`](Summer%202026%20REU/b6%20verification/)
 
 ## Setup
 

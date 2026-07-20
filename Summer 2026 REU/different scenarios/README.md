@@ -29,4 +29,24 @@ Generated figures:
 ```text
 figures/step3_scenario_cove_improvement.png
 figures/step3_scenario_revenue_gain.png
+figures/step3_revenue_cove_tradeoff.png
+figures/step3_ladder_revenue_progression.png
+figures/step3_3d_scenario_revenue_cove.png
 ```
+
+## Code In This Folder
+
+| File | What it does |
+| --- | --- |
+| `RUN_3_SCENARIO_COMPARISON.py` | Main command for Step 3. Prints the scenario table and regenerates the paper-facing figures from the saved official result. |
+| `code/run_uncertainty_aware_dispatch.py` | Full scenario experiment runner. Defaults to the official 48-hour, nowcast-first-hour, 1/3/5/7/10 scenario setup. |
+| `code/run_nora_matching_forecast_horizons.py` | Shared forecast and Nora/Chris storage-constraint helper used by the scenario runner. |
+| `code/run_best_forecast_dispatch_search.py` | Helper functions for revenue/COVE summaries and forecast candidate accounting. |
+
+Full rebuild command:
+
+```bash
+../../venv/bin/python code/run_uncertainty_aware_dispatch.py
+```
+
+The full rebuild is slower than `RUN_3_SCENARIO_COMPARISON.py` because it reruns Gurobi for all hourly scenario decisions.

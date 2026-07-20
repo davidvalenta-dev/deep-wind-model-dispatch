@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 BASE_DIR = Path(__file__).resolve().parent
 OUT = BASE_DIR / "best_forecast_dispatch_search_results"
 

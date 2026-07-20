@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_RESULTS = REPO_ROOT / "strategy_model" / "optimization" / "b6_final_results"
 EXPECTED_RUNS = {
     "A_ORACLE",

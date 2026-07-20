@@ -9,26 +9,41 @@ This file gives the current official paper-facing ladder. Use this map when writ
 | 1 | Which power forecast is best? | `Summer 2026 REU/causal ridge regression/RUN_1_FORECAST_RMSE.py` | causal lag / ridge-style forecast, 21.24 MW RMSE |
 | 2 | Which deterministic rolling horizon is best? | `Summer 2026 REU/rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h horizon, 6.25% COVE improvement vs baseload |
 | 3 | Do forecast scenarios improve dispatch? | `Summer 2026 REU/different scenarios/RUN_3_SCENARIO_COMPARISON.py` | 3 scenarios, 23.19% COVE reduction vs baseload |
-| Context | What is the perfect-information upper bound? | printed by `RUN_2_ROLLING_HORIZON.py` | 168 h oracle, 32.83% COVE improvement vs baseload |
+| 4 | What is the perfect-information upper bound? | `Summer 2026 REU/oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | 168 h oracle, 32.83% COVE improvement vs baseload |
 
 ## Current Result Files
 
 | Result | File |
 | --- | --- |
 | Forecast model comparison | `Summer 2026 REU/causal ridge regression/results/forecast_model_rmse_comparison.csv` |
+| Causal lag/ridge generated predictions | `Summer 2026 REU/causal ridge regression/results/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv` |
 | Deterministic rolling horizon summary | `Summer 2026 REU/rolling horizon/results/causal_ridge_rolling_horizon_summary.csv` |
 | Scenario summary | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/uncertainty_aware_summary.csv` |
 | Scenario metadata | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/experiment_metadata.json` |
+| Oracle upper-bound summary | `Summer 2026 REU/oracle upper bound/results/oracle_upper_bound_summary.csv` |
 
 ## Current Figures
 
 | Step | Figure |
 | --- | --- |
 | Forecast RMSE | `Summer 2026 REU/causal ridge regression/figures/step1_forecast_rmse_comparison.png` |
+| Forecast RMSE/MAE tradeoff | `Summer 2026 REU/causal ridge regression/figures/step1_rmse_mae_tradeoff.png` |
+| Forecast example week | `Summer 2026 REU/causal ridge regression/figures/step1_example_forecast_week.png` |
+| Forecast error distribution | `Summer 2026 REU/causal ridge regression/figures/step1_causal_error_distribution.png` |
 | Horizon COVE improvement | `Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_improvement.png` |
 | Horizon COVE values | `Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_cove.png` |
+| Horizon revenue | `Summer 2026 REU/rolling horizon/figures/step2_revenue_by_horizon.png` |
+| Horizon runtime/value tradeoff | `Summer 2026 REU/rolling horizon/figures/step2_runtime_value_tradeoff.png` |
+| Horizon 3D tradeoff | `Summer 2026 REU/rolling horizon/figures/step2_3d_horizon_revenue_cove.png` |
 | Scenario COVE improvement | `Summer 2026 REU/different scenarios/figures/step3_scenario_cove_improvement.png` |
 | Scenario revenue gain | `Summer 2026 REU/different scenarios/figures/step3_scenario_revenue_gain.png` |
+| Scenario revenue/COVE tradeoff | `Summer 2026 REU/different scenarios/figures/step3_revenue_cove_tradeoff.png` |
+| Scenario ladder revenue | `Summer 2026 REU/different scenarios/figures/step3_ladder_revenue_progression.png` |
+| Scenario 3D tradeoff | `Summer 2026 REU/different scenarios/figures/step3_3d_scenario_revenue_cove.png` |
+| Oracle improvement | `Summer 2026 REU/oracle upper bound/figures/step4_oracle_improvement_by_horizon.png` |
+| Oracle COVE | `Summer 2026 REU/oracle upper bound/figures/step4_oracle_cove_by_horizon.png` |
+| Oracle runtime/value tradeoff | `Summer 2026 REU/oracle upper bound/figures/step4_oracle_runtime_value_tradeoff.png` |
+| Oracle 3D ceiling | `Summer 2026 REU/oracle upper bound/figures/step4_3d_oracle_revenue_cove.png` |
 
 ## Step 1: Forecast Model
 
@@ -70,6 +85,19 @@ The scenario case keeps the causal ridge forecast and 48-hour Gurobi lookahead. 
 | 10 scenarios | 341,858,797.71 | 25.74% | 0.171577 | 20.47% |
 
 The three-scenario controller is best in the full 48-hour ladder run. Five and seven scenarios are very close. Ten scenarios performs worse because it becomes too conservative.
+
+## Step 4: Oracle Upper Bound
+
+The oracle case keeps the same saved horizon table as Step 2 but filters to the perfect-future rows. It is not deployable because Gurobi sees actual future wind and price.
+
+| Horizon | Revenue metric | COVE | Baseload COVE | COVE improvement |
+| ---: | ---: | ---: | ---: | ---: |
+| 24 h | 9,951,482.65 | 5.214904 | 7.273584 | 28.30% |
+| 48 h | 10,388,770.32 | 4.995396 | 7.273584 | 31.32% |
+| 72 h | 10,546,720.47 | 4.920584 | 7.273584 | 32.35% |
+| 168 h | 10,622,594.82 | 4.885438 | 7.273584 | 32.83% |
+
+The 168-hour oracle is the highest upper-bound case in the current folder.
 
 ## Constraints Confirmed
 

@@ -1,6 +1,6 @@
 # Summer 2026 REU
 
-This folder is organized as a three-step research ladder. Each step has one command to run and produces its own printed table and figures.
+This folder is organized as a research ladder plus one oracle upper-bound check. Each folder has one command to run and produces its own printed table and figures.
 
 ## Folder Map
 
@@ -9,10 +9,12 @@ This folder is organized as a three-step research ladder. Each step has one comm
 | `causal ridge regression` | Compare forecast models using RMSE | `../../venv/bin/python RUN_1_FORECAST_RMSE.py` |
 | `rolling horizon` | Compare Gurobi horizons using the causal ridge forecast | `../../venv/bin/python RUN_2_ROLLING_HORIZON.py` |
 | `different scenarios` | Compare single forecast vs 3/5/7/10 scenarios | `../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py` |
+| `oracle upper bound` | Compare perfect-future Gurobi horizons | `../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py` |
+| `b6 verification` | Separate 2020 frozen verification packet | See `b6 verification/code` |
 
 ## Main Story
 
-Baseload is the reference case. First, the causal ridge forecast is checked against other prediction methods. Then that forecast is used inside Gurobi with rolling-horizon dispatch. Finally, scenario dispatch adds several possible forecast futures so the controller is less dependent on one predicted path.
+Baseload is the reference case. First, the causal ridge forecast is checked against other prediction methods. Then that forecast is used inside Gurobi with rolling-horizon dispatch. Scenario dispatch adds several possible forecast futures so the controller is less dependent on one predicted path. The oracle folder is separate: it shows the perfect-future ceiling, not a deployable method.
 
 ## Best Results
 

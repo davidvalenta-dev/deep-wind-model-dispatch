@@ -23,6 +23,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 
 RESULTS = HERE / "results"
@@ -104,6 +105,8 @@ def main() -> None:
     labels = ["Baseload"] + [short_name(row["candidate"]) for row in rows]
     gains = [0.0] + [float(row["cove_reduction_vs_baseload_pct"]) for row in rows]
     rev_gains = [0.0] + [float(row["revenue_gain_vs_baseload_pct"]) for row in rows]
+    revenues = [baseload_revenue] + [float(row["dispatch_revenue"]) for row in rows]
+    coves = [baseload_cove] + [float(row["dispatch_cove_index"]) for row in rows]
     colors = ["#9CA3AF"] + ["#60A5FA", "#38BDF8", "#22C55E", "#16A34A", "#F97316"]
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
@@ -134,7 +137,58 @@ def main() -> None:
     fig.savefig(out2, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
-    print(f"\nFigures saved:\n  {out1}\n  {out2}")
+    fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
+    ax.plot(rev_gains, gains, marker="o", linewidth=2.4, color="#2563EB")
+    for label, x_value, y_value in zip(labels, rev_gains, gains):
+        ax.annotate(label, (x_value, y_value), xytext=(7, 5), textcoords="offset points")
+    ax.set_xlabel("Revenue gain vs baseload (%)")
+    ax.set_ylabel("COVE reduction vs baseload (%)")
+    ax.set_title("Scenario Tradeoff: Revenue and COVE Move Together", fontweight="bold")
+    ax.grid(color="#E5E7EB")
+    fig.tight_layout()
+    out3 = FIGURES / "step3_revenue_cove_tradeoff.png"
+    fig.savefig(out3, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+    ladder_labels = ["Baseload", "1 forecast", "3 scenarios"]
+    ladder_values = [
+        baseload_revenue / 1e6,
+        float(rows[0]["dispatch_revenue"]) / 1e6,
+        float(best["dispatch_revenue"]) / 1e6,
+    ]
+    fig, ax = plt.subplots(figsize=(9.2, 5.2), dpi=180)
+    bars = ax.bar(ladder_labels, ladder_values, color=["#9CA3AF", "#60A5FA", "#22C55E"])
+    ax.set_ylabel("Revenue (millions)")
+    ax.set_title("Ladder Result: Forecast Dispatch to Scenario Dispatch", fontweight="bold")
+    ax.grid(axis="y", color="#E5E7EB")
+    ax.set_axisbelow(True)
+    for bar, value in zip(bars, ladder_values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value + 2.0, f"${value:.1f}M", ha="center")
+    fig.tight_layout()
+    out4 = FIGURES / "step3_ladder_revenue_progression.png"
+    fig.savefig(out4, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+    scenario_counts = [0, 1, 3, 5, 7, 10]
+    fig = plt.figure(figsize=(8.8, 6.4), dpi=180)
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot(scenario_counts, [value / 1e6 for value in revenues], coves, color="#0F766E", linewidth=2.2)
+    ax.scatter(scenario_counts, [value / 1e6 for value in revenues], coves, color="#EF4444", s=55)
+    for count, label, revenue_value, cove_value in zip(scenario_counts, labels, revenues, coves):
+        ax.text(count, revenue_value / 1e6, cove_value, label.replace(" scenarios", "sc"), fontsize=8)
+    ax.set_xlabel("Scenario count")
+    ax.set_ylabel("Revenue (M)")
+    ax.set_zlabel("COVE")
+    ax.set_title("3D Scenario View: More Scenarios Is Not Automatically Better", fontweight="bold")
+    ax.view_init(elev=24, azim=-48)
+    fig.tight_layout()
+    out5 = FIGURES / "step3_3d_scenario_revenue_cove.png"
+    fig.savefig(out5, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+    print("\nFigures saved:")
+    for figure in [out1, out2, out3, out4, out5]:
+        print(f"  {figure}")
 
 
 if __name__ == "__main__":

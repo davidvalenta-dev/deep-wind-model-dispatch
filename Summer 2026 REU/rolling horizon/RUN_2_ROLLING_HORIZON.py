@@ -4,19 +4,22 @@
 Run from this folder:
     ../../venv/bin/python RUN_2_ROLLING_HORIZON.py
 
-This reads the frozen causal ridge + direct-reserve Gurobi result. Gurobi gets
-a forecast window, executes only the first 24 hours, carries the battery state
-forward, and repeats.
+This reruns the causal ridge + direct-reserve Gurobi result using the settings
+in EXPERIMENT_KNOBS.py. Gurobi gets a forecast window, executes only the first
+24 hours, carries the battery state forward, and repeats.
 """
 
 from __future__ import annotations
 
 import csv
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+os.environ["LC_ALL"] = "C"
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "summer_reu_mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(Path(tempfile.gettempdir()) / "summer_reu_cache"))
 
@@ -26,10 +29,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
+import EXPERIMENT_KNOBS as knobs
 
-RESULTS = HERE / "results"
+
+RESULTS = Path(knobs.OUTPUT_DIR)
 FIGURES = HERE / "figures"
-SUMMARY_FILE = RESULTS / "causal_ridge_rolling_horizon_summary.csv"
+SUMMARY_FILE = RESULTS / "forecast_dispatch_summary.csv"
+RUNNER = HERE / "code" / "forecast_backtest_rolling_horizons.py"
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -43,8 +49,57 @@ def fmt_money(value: str) -> str:
     return f"{float(value):,.2f}"
 
 
+def add_optional(cmd: list[str], flag: str, value) -> None:
+    if value is not None:
+        cmd.extend([flag, str(value)])
+
+
+def rerun_from_knobs() -> None:
+    cmd = [
+        sys.executable,
+        str(RUNNER),
+        "--data",
+        str(knobs.DATA),
+        "--config",
+        str(knobs.CONFIG),
+        "--train-end",
+        str(knobs.TRAIN_END),
+        "--alpha",
+        str(knobs.ALPHA),
+        "--train-origin-stride",
+        str(knobs.TRAIN_ORIGIN_STRIDE),
+        "--mip-gap",
+        str(knobs.MIP_GAP),
+        "--storage-power-mw",
+        str(knobs.STORAGE_POWER_MW),
+        "--storage-duration-h",
+        str(knobs.STORAGE_DURATION_H),
+        "--grid-cap-mw",
+        str(knobs.GRID_CAP_MW),
+        "--min-soc-frac",
+        str(knobs.MIN_SOC_FRAC),
+        "--max-soc-frac",
+        str(knobs.MAX_SOC_FRAC),
+        "--direct-reserve-mw",
+        str(knobs.DIRECT_RESERVE_MW),
+        "--horizons",
+        *[str(horizon) for horizon in knobs.HORIZONS],
+        "--out-dir",
+        str(RESULTS),
+    ]
+    add_optional(cmd, "--test-end", knobs.TEST_END)
+    add_optional(cmd, "--initial-soc", knobs.INITIAL_SOC_MWH)
+    if not knobs.RUN_ORACLE_CONTEXT:
+        cmd.append("--skip-oracle")
+    print("Running rolling-horizon Gurobi command from EXPERIMENT_KNOBS.py:")
+    print(" ".join(map(str, cmd)))
+    subprocess.run(cmd, cwd=HERE, check=True)
+
+
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    rerun_from_knobs()
     all_rows = load_rows(SUMMARY_FILE)
     causal = [
         row for row in all_rows

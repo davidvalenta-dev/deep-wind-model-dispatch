@@ -5,6 +5,14 @@ The figures are copied into the experiment folder they belong to, with names
 starting with `paper_figXX_` so they are easy to distinguish from older draft
 figures.
 
+## 100 MW Baseload
+
+Location: `Summer 2026 REU/100 MW baseload/figures/`
+
+- `step0_100mw_baseload_example_week.png`: example week showing wind, delivered power, charge/discharge, and SoC for the 100 MW rule.
+- `step0_oracle_vs_100mw_baseload.png`: canonical 2020 oracle horizons compared against the 100 MW baseload.
+- `step0_b6_revenue_vs_100mw_baseload.png`: B6 A/B/C causal and oracle 2020 raw realized revenues compared against the 100 MW baseload.
+
 ## Causal Ridge Regression
 
 Location: `Summer 2026 REU/causal ridge regression/figures/`

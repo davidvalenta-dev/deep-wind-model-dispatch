@@ -7,9 +7,9 @@ This file gives the current official paper-facing ladder. Use this map when writ
 | Step | Question | Command | Main result |
 | --- | --- | --- | ---: |
 | 1 | Which power forecast is best? | `Summer 2026 REU/causal ridge regression/RUN_1_FORECAST_RMSE.py` | causal lag / ridge-style forecast, 21.24 MW RMSE |
-| 2 | Which deterministic rolling horizon is best? | `Summer 2026 REU/rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h horizon, 6.25% COVE improvement vs baseload |
+| 2 | Which deterministic rolling horizon is best? | `Summer 2026 REU/rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h horizon, 0.95% COVE improvement vs baseload |
 | 3 | Do forecast scenarios improve dispatch? | `Summer 2026 REU/different scenarios/RUN_3_SCENARIO_COMPARISON.py` | 3 scenarios, 23.19% COVE reduction vs baseload |
-| 4 | What is the perfect-information upper bound? | `Summer 2026 REU/oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | 168 h oracle, 32.83% COVE improvement vs baseload |
+| 4 | What is the perfect-information upper bound? | `Summer 2026 REU/oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | 168 h oracle, 26.21% COVE improvement vs baseload |
 
 ## Current Result Files
 
@@ -18,9 +18,13 @@ This file gives the current official paper-facing ladder. Use this map when writ
 | Forecast model comparison | `Summer 2026 REU/causal ridge regression/results/forecast_model_rmse_comparison.csv` |
 | Causal lag/ridge generated predictions | `Summer 2026 REU/causal ridge regression/results/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv` |
 | Deterministic rolling horizon summary | `Summer 2026 REU/rolling horizon/results/causal_ridge_rolling_horizon_summary.csv` |
+| Deterministic rolling horizon hourly CSVs | `Summer 2026 REU/rolling horizon/results/full_hourly_outputs/forecast_dispatch_*.csv` |
 | Scenario summary | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/uncertainty_aware_summary.csv` |
+| Scenario hourly CSVs | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/*_labels.csv` |
 | Scenario metadata | `Summer 2026 REU/different scenarios/results/scenario_48h_full_ladder/experiment_metadata.json` |
 | Oracle upper-bound summary | `Summer 2026 REU/oracle upper bound/results/oracle_upper_bound_summary.csv` |
+| Oracle hourly CSVs | `Summer 2026 REU/oracle upper bound/results/full_hourly_outputs/oracle_dispatch_*.csv` |
+| 100-MW baseload hourly CSVs | `Summer 2026 REU/100 MW baseload/results/full_hourly_outputs/*.csv` |
 
 ## Current Figures
 
@@ -60,14 +64,14 @@ Step 1 only checks prediction accuracy. It does not have revenue or COVE because
 
 ## Step 2: Deterministic Rolling-Horizon Gurobi
 
-The deterministic case uses the causal ridge forecast, a 75 MW direct-export reserve, Nora/Chris storage constraints, and baseload as the comparison.
+The deterministic case uses the causal ridge forecast, a 75 MW direct-export reserve, the common 100 MW / 10-hour CAES storage setup, Nora/Chris storage constraints, and baseload as the comparison.
 
 | Horizon | Direct reserve | Revenue metric | COVE | Baseload COVE | COVE improvement |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 24 h | 75 MW | 7,378,742.01 | 7.033181 | 7.273584 | 3.31% |
-| 48 h | 75 MW | 7,610,575.51 | 6.818936 | 7.273584 | 6.25% |
-| 72 h | 75 MW | 7,594,786.43 | 6.833112 | 7.273584 | 6.06% |
-| 168 h | 75 MW | 7,544,993.73 | 6.878207 | 7.273584 | 5.44% |
+| 24 h | 75 MW | 7,380,822.51 | 6.966260 | 6.887330 | -1.15% |
+| 48 h | 75 MW | 7,536,863.07 | 6.822033 | 6.887330 | 0.95% |
+| 72 h | 75 MW | 7,528,047.69 | 6.830021 | 6.887330 | 0.83% |
+| 168 h | 75 MW | 7,508,616.74 | 6.847696 | 6.887330 | 0.58% |
 
 The 48-hour deterministic horizon is best because it looks far enough ahead to use storage, but not so far that forecast errors dominate the plan.
 
@@ -92,10 +96,10 @@ The oracle case keeps the same saved horizon table as Step 2 but filters to the 
 
 | Horizon | Revenue metric | COVE | Baseload COVE | COVE improvement |
 | ---: | ---: | ---: | ---: | ---: |
-| 24 h | 9,951,482.65 | 5.214904 | 7.273584 | 28.30% |
-| 48 h | 10,388,770.32 | 4.995396 | 7.273584 | 31.32% |
-| 72 h | 10,546,720.47 | 4.920584 | 7.273584 | 32.35% |
-| 168 h | 10,622,594.82 | 4.885438 | 7.273584 | 32.83% |
+| 24 h | 9,819,350.07 | 5.236266 | 6.887330 | 23.97% |
+| 48 h | 10,073,630.57 | 5.104091 | 6.887330 | 25.89% |
+| 72 h | 10,112,687.75 | 5.084378 | 6.887330 | 26.18% |
+| 168 h | 10,116,705.90 | 5.082358 | 6.887330 | 26.21% |
 
 The 168-hour oracle is the highest upper-bound case in the current folder.
 

@@ -7,6 +7,17 @@ This folder contains the forecast/RMSE code for the first step of the Summer 202
 | `causal_lag_forecast.py` | Trains the causal lag/ridge-style power forecast from wind speed, lagged power, and calendar features. |
 | `compare_forecast_rmse.py` | Recomputes the RMSE comparison against persistence, speed-curve, RNN, physics, and probabilistic forecasts. |
 
+The main reproduction command is run from the parent folder:
+
+```bash
+cd ..
+../../venv/bin/python RUN_1_FORECAST_RMSE.py
+```
+
+For normal reruns, change `../EXPERIMENT_KNOBS.py` first. That file is the
+one place for the forecast dataset, ridge alpha, comparison forecast file,
+forecast output folder, and RMSE output file.
+
 Inputs:
 
 | Source file | Why it is used |

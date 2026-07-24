@@ -1,0 +1,27 @@
+"""One place to change Step 1 forecast/RMSE settings.
+
+Edit this file, then run:
+    ../../venv/bin/python RUN_1_FORECAST_RMSE.py
+"""
+
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parents[1]
+
+# Input data for the causal lag/ridge forecast.
+DATASET = REPO_ROOT / "data" / "processed" / "dataset_14-23.csv"
+
+# Ridge regularization. Larger values smooth the model more.
+CAUSAL_ALPHA = 1e-6
+
+# Earlier neural-network/physics/probabilistic forecast file used for comparison.
+PYRON_RESULTS = REPO_ROOT / "power_model" / "evaluation" / "pyron_model_results.csv"
+
+# Where this rerun writes outputs.
+OUTPUT_DIR = HERE / "results" / "current_run_from_knobs"
+CAUSAL_OUTPUT_DIR = OUTPUT_DIR / "causal_lag_forecast_outputs"
+RMSE_OUTPUT = OUTPUT_DIR / "forecast_model_rmse_comparison.csv"
+
+# Set True only if you want to reuse the existing causal prediction CSV.
+SKIP_REBUILD = False

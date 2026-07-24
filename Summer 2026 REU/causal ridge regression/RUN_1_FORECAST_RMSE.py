@@ -19,6 +19,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+os.environ["LC_ALL"] = "C"
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "summer_reu_mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(Path(tempfile.gettempdir()) / "summer_reu_cache"))
 
@@ -28,12 +29,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import EXPERIMENT_KNOBS as knobs
+
 
 RESULTS = HERE / "results"
 FIGURES = HERE / "figures"
-RMSE_FILE = RESULTS / "forecast_model_rmse_comparison.csv"
+RMSE_FILE = Path(knobs.RMSE_OUTPUT)
 COMPARE_SCRIPT = HERE / "code" / "compare_forecast_rmse.py"
-PREDICTIONS_FILE = RESULTS / "causal_lag_forecast_outputs" / "causal_lag_forecast_predictions.csv"
+PREDICTIONS_FILE = Path(knobs.CAUSAL_OUTPUT_DIR) / "causal_lag_forecast_predictions.csv"
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -44,15 +47,30 @@ def load_rows(path: Path) -> list[dict[str, str]]:
 
 
 def rebuild_rmse_table() -> None:
-    subprocess.run(
-        [sys.executable, str(COMPARE_SCRIPT), "--output", str(RMSE_FILE)],
-        cwd=HERE,
-        check=True,
-    )
+    cmd = [
+        sys.executable,
+        str(COMPARE_SCRIPT),
+        "--dataset",
+        str(knobs.DATASET),
+        "--causal-alpha",
+        str(knobs.CAUSAL_ALPHA),
+        "--causal-output-dir",
+        str(knobs.CAUSAL_OUTPUT_DIR),
+        "--pyron-results",
+        str(knobs.PYRON_RESULTS),
+        "--output",
+        str(RMSE_FILE),
+    ]
+    if getattr(knobs, "SKIP_REBUILD", False):
+        cmd.append("--skip-rebuild")
+    print("Running forecast/RMSE command from EXPERIMENT_KNOBS.py:")
+    print(" ".join(map(str, cmd)))
+    subprocess.run(cmd, cwd=HERE, check=True)
 
 
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
+    RMSE_FILE.parent.mkdir(parents=True, exist_ok=True)
     rebuild_rmse_table()
     rows = load_rows(RMSE_FILE)
     rows = sorted(rows, key=lambda row: float(row["rmse_mw"]))

@@ -185,6 +185,10 @@ def forecast_metrics(
 ) -> pd.DataFrame:
     rows = []
     for start_lead, end_lead in ((1, 24), (25, 48), (49, 72), (73, 168)):
+        max_lead = forecasts.shape[1]
+        if start_lead > max_lead:
+            continue
+        end_lead = min(end_lead, max_lead)
         lead_indices = np.arange(start_lead - 1, end_lead)
         predicted = forecasts[:, lead_indices].reshape(-1)
         observed = np.concatenate([actual[origin + lead_indices] for origin in origins])

@@ -4,18 +4,21 @@
 Run from this folder:
     ../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
 
-This compares baseload, single-forecast dispatch, and multi-scenario dispatch.
-It uses the full 48-hour scenario ladder run.
+This reruns baseload, single-forecast dispatch, and multi-scenario dispatch
+using the settings in EXPERIMENT_KNOBS.py.
 """
 
 from __future__ import annotations
 
 import csv
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+os.environ["LC_ALL"] = "C"
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "summer_reu_mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(Path(tempfile.gettempdir()) / "summer_reu_cache"))
 
@@ -25,10 +28,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
+import EXPERIMENT_KNOBS as knobs
 
-RESULTS = HERE / "results"
+
+RESULTS = Path(knobs.OUTPUT_DIR)
 FIGURES = HERE / "figures"
-SUMMARY_FILE = RESULTS / "scenario_48h_full_ladder" / "uncertainty_aware_summary.csv"
+SUMMARY_FILE = RESULTS / "uncertainty_aware_summary.csv"
+RUNNER = HERE / "code" / "run_uncertainty_aware_dispatch.py"
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -53,8 +59,55 @@ def money(value: str) -> str:
     return f"${float(value):,.2f}"
 
 
+def add_optional(cmd: list[str], flag: str, value) -> None:
+    if value is not None:
+        cmd.extend([flag, str(value)])
+
+
+def rerun_from_knobs() -> None:
+    cmd = [
+        sys.executable,
+        str(RUNNER),
+        "--horizon-hours",
+        str(knobs.HORIZON_HOURS),
+        "--storage-power-mw",
+        str(knobs.STORAGE_POWER_MW),
+        "--storage-duration-h",
+        str(knobs.STORAGE_DURATION_H),
+        "--rte",
+        str(knobs.RTE),
+        "--dod",
+        str(knobs.DOD),
+        "--grid-cap-mw",
+        str(knobs.GRID_CAP_MW),
+        "--calibration-mode",
+        str(knobs.CALIBRATION_MODE),
+        "--forecast-train-end",
+        str(knobs.FORECAST_TRAIN_END),
+        "--calibration-end",
+        str(knobs.CALIBRATION_END),
+        "--variants",
+        *list(knobs.VARIANTS),
+        "--out-dir",
+        str(RESULTS),
+    ]
+    add_optional(cmd, "--initial-soc-mwh", knobs.INITIAL_SOC_MWH)
+    add_optional(cmd, "--max-origins", knobs.MAX_ORIGINS)
+    add_optional(cmd, "--gate-margin", knobs.GATE_MARGIN)
+    if knobs.NOWCAST_FIRST_HOUR:
+        cmd.append("--nowcast-first-hour")
+    else:
+        cmd.append("--no-nowcast-first-hour")
+    print("Running scenario-dispatch Gurobi command from EXPERIMENT_KNOBS.py:")
+    print(" ".join(map(str, cmd)))
+    print("Note: a full scenario rerun can take a long time. Set MAX_ORIGINS in EXPERIMENT_KNOBS.py for a quick test.")
+    subprocess.run(cmd, cwd=HERE, check=True)
+
+
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    rerun_from_knobs()
     rows = load_rows(SUMMARY_FILE)
     order = {
         "single_forecast_recourse_nowcast_gated": 1,

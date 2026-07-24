@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
+
+os.environ["LC_ALL"] = "C"
 
 import gurobipy as gp
 import matplotlib
@@ -15,7 +18,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from gurobipy import GRB
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BASE_DIR = Path(__file__).resolve().parent
@@ -526,8 +528,20 @@ def make_figures(summary: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    global OUT
+    global OUT, HORIZON
     parser = argparse.ArgumentParser()
+    parser.add_argument("--horizon-hours", type=int, default=48, help="Forecast/dispatch lookahead for each scenario MILP.")
+    parser.add_argument("--storage-power-mw", type=float, default=base.PS)
+    parser.add_argument("--storage-duration-h", type=float, default=base.DURATION_HOURS)
+    parser.add_argument("--rte", type=float, default=base.RTE)
+    parser.add_argument("--dod", type=float, default=base.DOD)
+    parser.add_argument("--grid-cap-mw", type=float, default=base.GRID_CAP)
+    parser.add_argument(
+        "--initial-soc-mwh",
+        type=float,
+        default=None,
+        help="Initial SoC. If omitted, uses midpoint between Cmin and Cmax.",
+    )
     parser.add_argument("--max-origins", type=int, default=None, help="Limit hourly origins for quick tests.")
     parser.add_argument(
         "--variants",
@@ -565,6 +579,20 @@ def main() -> None:
     parser.add_argument("--calibration-end", default="2014-01-01", help="End date for conformal calibration and start of test period.")
     args = parser.parse_args()
     OUT = args.out_dir
+    HORIZON = int(args.horizon_hours)
+    base.PS = float(args.storage_power_mw)
+    base.DURATION_HOURS = float(args.storage_duration_h)
+    base.RTE = float(args.rte)
+    base.SQRT_RTE = math.sqrt(base.RTE)
+    base.DOD = float(args.dod)
+    base.CMAX = base.PS * base.DURATION_HOURS
+    base.CMIN = base.CMAX * (1.0 - base.DOD)
+    base.SOC0 = (
+        float(args.initial_soc_mwh)
+        if args.initial_soc_mwh is not None
+        else (base.CMIN + base.CMAX) / 2.0
+    )
+    base.GRID_CAP = float(args.grid_cap_mw)
 
     OUT.mkdir(parents=True, exist_ok=True)
     df = pd.read_csv(base.DATA_PATH, parse_dates=["datetime"])

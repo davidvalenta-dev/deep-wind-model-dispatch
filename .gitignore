@@ -206,3 +206,9 @@ power_model/src/try.py
 
 # Obsolete duplicate proxy build; use the 2024010101 corrected dataset instead
 data/newest_pyron_shaped/pyron_proxy_continuation_2024010100_*
+
+# Local reruns created by the Summer 2026 REU knobs files. Official summaries,
+# figures, and selected full hourly CSVs remain tracked in their results folders.
+Summer 2026 REU/*/results/current_run_from_knobs/
+Summer 2026 REU/*/results/full_rebuild*/
+Summer 2026 REU/*/results/test_*/

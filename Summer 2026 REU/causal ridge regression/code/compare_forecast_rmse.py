@@ -44,10 +44,19 @@ def error_row(
     }
 
 
-def build_causal_predictions(output_dir: Path) -> Path:
+def build_causal_predictions(output_dir: Path, dataset: Path, alpha: float) -> Path:
     script = Path(__file__).resolve().parent / "causal_lag_forecast.py"
     subprocess.run(
-        [sys.executable, str(script), "--output-dir", str(output_dir)],
+        [
+            sys.executable,
+            str(script),
+            "--dataset",
+            str(dataset),
+            "--alpha",
+            str(alpha),
+            "--output-dir",
+            str(output_dir),
+        ],
         check=True,
     )
     return output_dir / "causal_lag_forecast_predictions.csv"
@@ -56,6 +65,8 @@ def build_causal_predictions(output_dir: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare Part 1 power forecast RMSE values.")
     parser.add_argument("--causal-output-dir", default=str(DEFAULT_CAUSAL_OUTPUT))
+    parser.add_argument("--dataset", default=str(REPO_ROOT / "data" / "processed" / "dataset_14-23.csv"))
+    parser.add_argument("--causal-alpha", type=float, default=1e-6)
     parser.add_argument("--pyron-results", default=str(DEFAULT_PYRON_RESULTS))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     parser.add_argument(
@@ -68,7 +79,11 @@ def main() -> None:
     causal_output = Path(args.causal_output_dir)
     causal_predictions = causal_output / "causal_lag_forecast_predictions.csv"
     if not args.skip_rebuild or not causal_predictions.exists():
-        causal_predictions = build_causal_predictions(causal_output)
+        causal_predictions = build_causal_predictions(
+            causal_output,
+            Path(args.dataset),
+            float(args.causal_alpha),
+        )
 
     rows: list[dict[str, float | int | str]] = []
 

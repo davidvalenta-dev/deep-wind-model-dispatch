@@ -10,9 +10,21 @@ Run:
 ../../venv/bin/python RUN_1_FORECAST_RMSE.py
 ```
 
+Before running, change all experiment settings in:
+
+```text
+EXPERIMENT_KNOBS.py
+```
+
+That file controls the forecast dataset, ridge alpha, comparison forecast file,
+and output folder.
+
 The script compares forecast methods using RMSE, MAE, and bias. Lower RMSE means the predicted power was closer to the actual measured power.
 
-That one command rebuilds the causal lag/ridge forecast, recomputes the RMSE comparison table, and regenerates the figures.
+That one command rebuilds the causal lag/ridge forecast from
+`EXPERIMENT_KNOBS.py`, recomputes the RMSE comparison table, and regenerates
+the figures. Fresh rerun outputs go to `results/current_run_from_knobs/` by
+default.
 
 Main result:
 

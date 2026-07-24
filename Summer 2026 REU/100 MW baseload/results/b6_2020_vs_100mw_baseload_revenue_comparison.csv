@@ -1,0 +1,7 @@
+run_id,architecture_id,workflow,storage_power_mw,storage_duration_h,energy_mwh,raw_realized_revenue_usd,revenue_gain_vs_100mw_baseload_pct,initial_soc_mwh,minimum_soc_mwh,final_soc_mwh,constraint_violations,note
+A_CAUSAL,A,Causal,100.0,6.0,600.0,8181454.3432635,-10.012022944804038,120.0,120.0,120.0,0,same 2020 raw realized LMP; B6 annual SoC rule differs from the 100-MW baseload rule
+A_ORACLE,A,Oracle,100.0,6.0,600.0,12927456.693308337,42.1893501437588,120.0,120.0,120.0,0,same 2020 raw realized LMP; B6 annual SoC rule differs from the 100-MW baseload rule
+B_CAUSAL,B,Causal,200.0,3.0,600.0,8196866.9744992,-9.842499111044543,120.0,120.0,120.00000000000004,0,same 2020 raw realized LMP; B6 annual SoC rule differs from the 100-MW baseload rule
+B_ORACLE,B,Oracle,200.0,3.0,600.0,13810058.704894992,51.897107008884625,120.0,120.0,120.0,0,same 2020 raw realized LMP; B6 annual SoC rule differs from the 100-MW baseload rule
+C_CAUSAL,C,Causal,100.0,10.0,1000.0,8399203.769981328,-7.616992722408418,200.0,200.0,200.0000000000001,0,same 2020 raw realized LMP; B6 annual SoC rule differs from the 100-MW baseload rule
+C_ORACLE,C,Oracle,100.0,10.0,1000.0,13397415.838684678,47.35844001661585,200.0,200.0,200.0,0,same 2020 raw realized LMP; B6 annual SoC rule differs from the 100-MW baseload rule

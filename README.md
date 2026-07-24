@@ -17,9 +17,9 @@ The clean reproduction folder is:
 | --- | --- | ---: |
 | Baseload | Reference case: sell/store by the baseline rule | 0.00% COVE improvement |
 | Forecast model | Compare power forecasts by RMSE | causal lag / ridge-style forecast, 21.24 MW RMSE |
-| Rolling-horizon Gurobi | Use the selected forecast and test 24/48/72/168 h windows | 48 h window, 6.25% COVE improvement |
+| Rolling-horizon Gurobi | Use the selected forecast and test 24/48/72/168 h windows | 48 h window, 0.95% COVE improvement |
 | Scenario dispatch | Use the selected forecast/window and test 1/3/5/7/10 futures | 3 scenarios, 23.19% COVE reduction and 30.19% revenue gain |
-| Oracle upper bound | Perfect future wind and price, not deployable | 168 h oracle, 32.83% COVE improvement |
+| Oracle upper bound | Perfect future wind and price, not deployable | 168 h oracle, 26.21% COVE improvement |
 
 The final realistic method is:
 
@@ -27,11 +27,19 @@ The final realistic method is:
 causal ridge forecast + 48-hour Gurobi lookahead + 3-scenario dispatch
 ```
 
-The oracle upper bound is not realistic. It gives Gurobi the actual future wind and price to show the ceiling: `168 h oracle = 32.83% COVE improvement`.
+The oracle upper bound is not realistic. It gives Gurobi the actual future wind and price to show the ceiling: `168 h oracle = 26.21% COVE improvement`.
 
 ## Run The Ladder
 
-Run one command in each folder.
+Run one command in each folder. To change a horizon, SoC value, storage size,
+scenario count, output folder, or other experiment setting, open the
+`EXPERIMENT_KNOBS.py` file inside that same folder first. The `RUN_*.py` command
+then reruns the experiment from those knobs and writes fresh summaries, hourly
+CSVs, and figures into `results/current_run_from_knobs/`.
+
+Example: to test a 35-hour oracle horizon, edit
+`Summer 2026 REU/oracle upper bound/EXPERIMENT_KNOBS.py` and set
+`HORIZONS = [35]`, then run `RUN_4_ORACLE_UPPER_BOUND.py`.
 
 ### 1. Forecast Model
 
@@ -62,10 +70,10 @@ Output:
 
 | Horizon | Direct reserve | COVE | COVE improvement vs baseload | Revenue metric |
 | ---: | ---: | ---: | ---: | ---: |
-| 24 h | 75 MW | 7.033181 | 3.31% | 7,378,742.01 |
-| 48 h | 75 MW | 6.818936 | 6.25% | 7,610,575.51 |
-| 72 h | 75 MW | 6.833112 | 6.06% | 7,594,786.43 |
-| 168 h | 75 MW | 6.878207 | 5.44% | 7,544,993.73 |
+| 24 h | 75 MW | 6.966260 | -1.15% | 7,380,822.51 |
+| 48 h | 75 MW | 6.822033 | 0.95% | 7,536,863.07 |
+| 72 h | 75 MW | 6.830021 | 0.83% | 7,528,047.69 |
+| 168 h | 75 MW | 6.847696 | 0.58% | 7,508,616.74 |
 
 The 48-hour window is best because it looks far enough ahead to use storage, but not so far that forecast errors dominate the plan.
 
@@ -100,10 +108,10 @@ Output:
 
 | Horizon | COVE | COVE improvement vs baseload | Revenue metric |
 | ---: | ---: | ---: | ---: |
-| 24 h | 5.214904 | 28.30% | 9,951,483.00 |
-| 48 h | 4.995396 | 31.32% | 10,388,770.32 |
-| 72 h | 4.920584 | 32.35% | 10,546,720.47 |
-| 168 h | 4.885438 | 32.83% | 10,622,594.82 |
+| 24 h | 5.236266 | 23.97% | 9,819,350.07 |
+| 48 h | 5.104091 | 25.89% | 10,073,630.57 |
+| 72 h | 5.084378 | 26.18% | 10,112,687.75 |
+| 168 h | 5.082358 | 26.21% | 10,116,705.90 |
 
 The 168-hour oracle is the best upper-bound case because it sees the most future information.
 
@@ -134,7 +142,7 @@ The 168-hour oracle is the best upper-bound case because it sees the most future
 
 The Gurobi/MILP dispatch model follows the Nora/Chris operating constraints: wind-only charging, no grid charging, no simultaneous charge/discharge, grid export cap, chronological SoC, and N+1 SoC indexing.
 
-The scenario folder uses the 100 MW, 10 h Nora CAES setup:
+The paper-facing dispatch folders use the 100 MW, 10 h Nora/Chris CAES setup:
 
 | Item | Value |
 | --- | ---: |
@@ -151,7 +159,7 @@ The scenario folder uses the 100 MW, 10 h Nora CAES setup:
 | Chronological SoC carryover | yes |
 | SoC indexing | N+1 |
 
-The deterministic rolling-horizon and oracle folder use the saved 100 MW, 24 h CAES backtest table that produced the 6.25% and 32.83% results. The scenario folder uses the 100 MW, 10 h Nora CAES setup that produced the 23.19% result. The README reports the exact current folder outputs rather than mixing those configurations.
+The deterministic rolling-horizon, oracle, and scenario folders now all use the common 100 MW / 10-hour storage setup. Older 100 MW / 24-hour results are preserved only as legacy material and are not the current paper-facing numbers.
 
 The latest 48-hour scenario run had zero grid/SoC violations and only numerical roundoff around `1e-14` in balance checks.
 

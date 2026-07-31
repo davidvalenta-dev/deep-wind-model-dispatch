@@ -38,7 +38,7 @@ def load_base_config(config_path: Path) -> dict:
         {
             "storage_type": "caes",
             "storage_rating": 100,
-            "storage_duration": 24,
+            "storage_duration": 10,
             "num_modules": 1,
             "rated_capacity": 249,
         }
@@ -327,7 +327,7 @@ def run_sensitivities(
                 price_forecasts,
                 48,
                 dict(base_config),
-                1440.0,
+                600.0,
                 min_soc_frac,
                 max_soc_frac,
                 0.0,
@@ -368,7 +368,7 @@ def run_sensitivities(
             clipped_forecast,
             48,
             config,
-            1440.0,
+            600.0,
             min_soc_frac,
             max_soc_frac,
             0.0,
@@ -626,7 +626,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     config = load_base_config(Path(args.config))
     labels = load_backtest_labels(result_dir)
-    yearly = yearly_results(labels, config, initial_soc=1440.0)
+    yearly = yearly_results(labels, config, initial_soc=600.0)
     tests = statistical_tests(yearly)
     wins = horizon_win_counts(yearly)
     yearly.to_csv(output_dir / "yearly_horizon_results.csv", index=False)
@@ -649,7 +649,7 @@ def main():
         generation_forecasts,
         price_forecasts,
         config,
-        1440.0,
+        600.0,
         0.2,
         1.0,
         Path(args.nqf),

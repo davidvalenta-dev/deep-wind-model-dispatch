@@ -1,0 +1,7 @@
+experiment_id,folder,runner,information_case,primary_benchmark,secondary_reference,storage_power_mw,storage_duration_h,capacity_mwh,min_soc_mwh,max_soc_mwh,initial_soc_mwh,grid_cap_mw,status
+step0_100mw_baseload,100 MW baseload,RUN_0_100MW_BASELOAD.py,actual wind rule,100-MW Constant-Output Baseload Benchmark,wind-only,100,10,1000,200,1000,600,249,current
+step1_forecast_rmse,causal ridge regression,RUN_1_FORECAST_RMSE.py,causal forecast comparison,not applicable,not applicable,not applicable,not applicable,not applicable,not applicable,not applicable,not applicable,not applicable,current
+step2_deterministic_rh,rolling horizon,RUN_2_ROLLING_HORIZON.py,Deterministic Forecast-Driven Rolling-Horizon MILP,100-MW Constant-Output Baseload Benchmark,wind-only,100,10,1000,200,1000,600,249,current
+step3_scenario_rh,different scenarios,RUN_3_SCENARIO_COMPARISON.py,Scenario-Based Rolling-Horizon MILP,100-MW Constant-Output Baseload Benchmark,wind-only,100,10,1000,200,1000,600,249,current
+step4_daily_oracle,oracle upper bound,RUN_4_ORACLE_UPPER_BOUND.py,H-hour Perfect-Information Oracle Rolling-Horizon MILP daily replan,100-MW Constant-Output Baseload Benchmark,wind-only,100,10,1000,200,1000,600,249,current
+step4_hourly_oracle_ceiling,oracle upper bound,RUN_4_ORACLE_UPPER_BOUND.py,H-hour Perfect-Information Oracle Rolling-Horizon MILP hourly replan,100-MW Constant-Output Baseload Benchmark,wind-only,100,10,1000,200,1000,600,249,current

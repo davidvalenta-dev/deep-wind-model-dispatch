@@ -115,6 +115,7 @@ def fit_direct_models(
     target_max: float,
     alpha: float,
     origin_stride: int,
+    known_future_values: np.ndarray | None = None,
 ) -> list[DirectForecastModel]:
     origins = np.arange(max(PAST_LAGS), train_end - max_horizon, origin_stride)
     base = origin_features(values, origins)
@@ -123,10 +124,20 @@ def fit_direct_models(
     for lead in range(1, max_horizon + 1):
         target_indices = origins + lead - 1
         lead_fraction = np.full((len(origins), 1), lead / max_horizon)
+        feature_blocks = [base, calendar_features(datetimes.iloc[target_indices]), lead_fraction]
+        valid = np.ones(len(origins), dtype=bool)
+        if known_future_values is not None:
+            known = known_future_values[target_indices]
+            valid &= ~np.isnan(known)
+            feature_blocks.append(known.reshape(-1, 1))
         X = np.column_stack(
-            [base, calendar_features(datetimes.iloc[target_indices]), lead_fraction]
+            feature_blocks
         )
         y = values[target_indices]
+        X = X[valid]
+        y = y[valid]
+        if len(y) == 0:
+            raise ValueError("No valid training samples for the requested known-future feature.")
         feature_mean = X.mean(axis=0)
         feature_scale = X.std(axis=0)
         feature_scale[feature_scale < 1e-8] = 1.0
@@ -154,6 +165,7 @@ def make_forecast_matrix(
     datetimes: pd.Series,
     origins: np.ndarray,
     models: list[DirectForecastModel],
+    known_future_values: np.ndarray | None = None,
 ) -> np.ndarray:
     max_horizon = len(models)
     forecasts = np.empty((len(origins), max_horizon), dtype=float)
@@ -165,7 +177,22 @@ def make_forecast_matrix(
             features = np.concatenate(
                 [base, calendar[lead_index], [(lead_index + 1) / max_horizon]]
             )
+            if known_future_values is not None:
+                features = np.concatenate(
+                    [features, [known_future_values[origin + lead_index]]]
+                )
             forecasts[row_index, lead_index] = model.predict(features)
+    return forecasts
+
+
+def make_known_future_matrix(
+    values: np.ndarray,
+    origins: np.ndarray,
+    max_horizon: int,
+) -> np.ndarray:
+    forecasts = np.empty((len(origins), max_horizon), dtype=float)
+    for row_index, origin in enumerate(origins):
+        forecasts[row_index, :] = values[origin : origin + max_horizon]
     return forecasts
 
 
@@ -693,8 +720,28 @@ def main():
     parser.add_argument("--test-end", default=None)
     parser.add_argument("--alpha", type=float, default=10.0)
     parser.add_argument("--train-origin-stride", type=int, default=24)
+    parser.add_argument(
+        "--horizons",
+        nargs="+",
+        type=int,
+        default=list(HORIZONS),
+        help="Planning horizons to test in hours.",
+    )
+    parser.add_argument(
+        "--price-signal",
+        choices=("ridge_rtm", "dam_lz_west", "dam_hb_west", "dam_augmented_lz_west", "dam_augmented_hb_west"),
+        default="ridge_rtm",
+        help=(
+            "Price signal used for planning. ridge_rtm trains the old causal "
+            "ridge price forecast. DAM options use known day-ahead West prices "
+            "for planning and still score realized revenue with RTM Pyron LMP."
+        ),
+    )
     parser.add_argument("--mip-gap", type=float, default=0.0)
-    parser.add_argument("--initial-soc", type=float, default=1440.0)
+    parser.add_argument("--storage-power-mw", type=float, default=100.0)
+    parser.add_argument("--storage-duration-h", type=float, default=10.0)
+    parser.add_argument("--grid-cap-mw", type=float, default=249.0)
+    parser.add_argument("--initial-soc", type=float, default=600.0)
     parser.add_argument("--min-soc-frac", type=float, default=0.2)
     parser.add_argument("--max-soc-frac", type=float, default=1.0)
     parser.add_argument(
@@ -732,16 +779,26 @@ def main():
     config.update(
         {
             "storage_type": "caes",
-            "storage_rating": 100,
-            "storage_duration": 24,
+            "storage_rating": args.storage_power_mw,
+            "storage_duration": args.storage_duration_h,
             "num_modules": 1,
-            "rated_capacity": 249,
+            "rated_capacity": args.grid_cap_mw,
         }
     )
-
-    capped_price = np.minimum(
-        df["lmp"].to_numpy(dtype=float), float(config["price_threshold"])
+    storage_capacity = float(
+        config["storage_rating"]
+        * config["storage_duration"]
+        * config["num_modules"]
     )
+
+    if "lmp" in df.columns:
+        raw_rtm_price = df["lmp"].to_numpy(dtype=float)
+    elif "rtm_lmp_pyron_usd_per_mwh" in df.columns:
+        raw_rtm_price = df["rtm_lmp_pyron_usd_per_mwh"].to_numpy(dtype=float)
+    else:
+        raise ValueError("Input data must contain either 'lmp' or 'rtm_lmp_pyron_usd_per_mwh'.")
+
+    capped_price = np.minimum(raw_rtm_price, float(config["price_threshold"]))
     train_end = int(
         np.searchsorted(
             df["datetime"].to_numpy(), np.datetime64(args.train_end)
@@ -751,7 +808,33 @@ def main():
     df["price_normalized"] = capped_price / training_price_mean
     generation = df["power_generated"].to_numpy(dtype=float)
     normalized_price = df["price_normalized"].to_numpy(dtype=float)
-    max_horizon = max(HORIZONS)
+    if args.price_signal in ("dam_lz_west", "dam_augmented_lz_west"):
+        planned_price_values = (
+            df["dam_lz_west_spp_usd_per_mwh"].to_numpy(dtype=float)
+            / training_price_mean
+        )
+        planned_price_name = (
+            "dam_lz_west_normalized"
+            if args.price_signal == "dam_lz_west"
+            else "dam_augmented_lz_west_price_normalized"
+        )
+    elif args.price_signal in ("dam_hb_west", "dam_augmented_hb_west"):
+        planned_price_values = (
+            df["dam_hb_west_spp_usd_per_mwh"].to_numpy(dtype=float)
+            / training_price_mean
+        )
+        planned_price_name = (
+            "dam_hb_west_normalized"
+            if args.price_signal == "dam_hb_west"
+            else "dam_augmented_hb_west_price_normalized"
+        )
+    else:
+        planned_price_values = normalized_price
+        planned_price_name = "price_normalized"
+    horizons = tuple(int(value) for value in args.horizons)
+    if not horizons:
+        raise ValueError("At least one horizon must be supplied.")
+    max_horizon = max(horizons)
 
     if train_end <= max(PAST_LAGS) + max_horizon:
         raise ValueError("Training period is too short.")
@@ -780,27 +863,44 @@ def main():
         args.alpha,
         args.train_origin_stride,
     )
-    price_models = fit_direct_models(
-        normalized_price,
-        df["datetime"],
-        train_end,
-        max_horizon,
-        -2.0,
-        float(config["price_threshold"]) / training_price_mean,
-        args.alpha,
-        args.train_origin_stride,
-    )
     generation_forecasts = make_forecast_matrix(
         generation, df["datetime"], origins, generation_models
     )
-    price_forecasts = make_forecast_matrix(
-        normalized_price, df["datetime"], origins, price_models
-    )
+    if args.price_signal in ("ridge_rtm", "dam_augmented_lz_west", "dam_augmented_hb_west"):
+        price_models = fit_direct_models(
+            normalized_price,
+            df["datetime"],
+            train_end,
+            max_horizon,
+            -2.0,
+            float(config["price_threshold"]) / training_price_mean,
+            args.alpha,
+            args.train_origin_stride,
+            planned_price_values
+            if args.price_signal.startswith("dam_augmented")
+            else None,
+        )
+        price_forecasts = make_forecast_matrix(
+            normalized_price,
+            df["datetime"],
+            origins,
+            price_models,
+            planned_price_values
+            if args.price_signal.startswith("dam_augmented")
+            else None,
+        )
+    else:
+        price_forecasts = make_known_future_matrix(
+            planned_price_values,
+            origins,
+            max_horizon,
+        )
     np.savez_compressed(
         output_dir / "forecast_matrices.npz",
         origins=origins,
         generation_forecast=generation_forecasts,
         price_forecast=price_forecasts,
+        price_signal=args.price_signal,
     )
 
     metrics = pd.concat(
@@ -812,7 +912,7 @@ def main():
                 normalized_price,
                 origins,
                 price_forecasts,
-                "price_normalized",
+                planned_price_name,
             ),
         ],
         ignore_index=True,
@@ -821,7 +921,7 @@ def main():
 
     summaries = []
     labels_by_horizon: dict[int, pd.DataFrame] = {}
-    for horizon in HORIZONS:
+    for horizon in horizons:
         labels, summary = run_horizon(
             df,
             train_end,
@@ -844,7 +944,7 @@ def main():
         summaries.append(summary)
 
     if not args.skip_oracle:
-        for horizon in HORIZONS:
+        for horizon in horizons:
             labels, summary = run_horizon(
                 df,
                 train_end,
@@ -886,15 +986,17 @@ def main():
         ],
         "storage": {
             "type": "caes",
-            "rating_mw": 100,
-            "duration_hours": 24,
-            "capacity_mwh": 2400,
-            "rte": util.get_rte("caes", 100, 24),
-            "min_soc_mwh": 480,
-            "max_soc_mwh": 2400,
+            "rating_mw": float(config["storage_rating"]),
+            "duration_hours": float(config["storage_duration"]),
+            "capacity_mwh": storage_capacity,
+            "rte": util.get_rte("caes", config["storage_rating"], config["storage_duration"]),
+            "min_soc_mwh": storage_capacity * args.min_soc_frac,
+            "max_soc_mwh": storage_capacity * args.max_soc_frac,
             "initial_soc_mwh": args.initial_soc,
-            "grid_limit_mw": 249,
+            "grid_limit_mw": float(config["rated_capacity"]),
         },
+        "price_signal_for_planning": args.price_signal,
+        "realized_price_for_scoring": "RTM Pyron LMP normalized by the training-period mean after the existing threshold cap",
         "maximum_constraint_violation": maximum_violation,
         "best_forecast_horizon": int(
             causal_rows.sort_values("cove").iloc[0]["horizon_hours"]

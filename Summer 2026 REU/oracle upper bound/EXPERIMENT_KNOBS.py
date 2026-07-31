@@ -9,8 +9,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[1]
 
-# Where the full Gurobi oracle rerun writes summaries and hourly CSVs.
+# Where the daily-replan Gurobi oracle rerun writes summaries and hourly CSVs.
 OUTPUT_DIR = HERE / "results" / "current_run_from_knobs"
+HOURLY_CEILING_OUTPUT_DIR = HERE / "results" / "hourly_168h_oracle_ceiling"
+
+# False means the RUN script prints the saved current 100 MW / 10-hour CAES oracle results
+# already saved in OUTPUT_DIR. Set True only for an intentional rerun.
+RERUN_FROM_SOURCE = True
 
 # Data and model config.
 DATA = REPO_ROOT / "data" / "processed" / "dataset_1980-2023_withloads_fix.csv"
@@ -29,8 +34,25 @@ STORAGE_DURATION_H = 10.0
 GRID_CAP_MW = 249.0
 MIN_SOC_FRAC = 0.2
 MAX_SOC_FRAC = 1.0
-INITIAL_SOC_MWH = None
+INITIAL_SOC_MWH = 600.0
+ANNUAL_TARGET_SOC_MWH = None
 
-# Oracle horizons to test. Add 35 here if you want a 35-hour perfect-future case.
+# Daily-replan oracle horizons to test. Add 35 here if you want a 35-hour case.
 HORIZONS = [24, 48, 72, 168]
+EXECUTION_STEP_HOURS = 24
+REPLANNING_INTERVAL_HOURS = 24
+TERMINAL_POLICY = "equal-initial"
 MIP_GAP = 0.0
+
+# Optional extra perfect-future ceiling: 168-hour lookahead with hourly replanning.
+# This is computationally heavy on the full 2014-2023 dataset, so the default
+# current folder uses the daily-replan oracle that matches the ladder.
+RUN_HOURLY_168H_CEILING = False
+HOURLY_CEILING_HORIZON = 168
+HOURLY_CEILING_EXECUTION_STEP_HOURS = 1
+HOURLY_CEILING_REPLANNING_INTERVAL_HOURS = 1
+HOURLY_CEILING_TERMINAL_POLICY = "equal-initial"
+
+# Legacy non-strategic storage-baseload setting. The primary comparison is now
+# the 100 MW constant-output benchmark; wind-only stays as secondary reference.
+PRIMARY_BASELINE_STORAGE_DURATION_H = 10.0

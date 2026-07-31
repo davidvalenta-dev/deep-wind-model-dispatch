@@ -1,0 +1,32 @@
+{
+  "training_period": [
+    "1980-01-01 01:00:00",
+    "2013-12-31 23:00:00"
+  ],
+  "backtest_period": [
+    "2014-01-01 00:00:00",
+    "2023-12-30 04:00:00"
+  ],
+  "storage": {
+    "type": "caes",
+    "rating_mw": 100.0,
+    "duration_hours": 10.0,
+    "capacity_mwh": 1000.0,
+    "rte": 0.55,
+    "min_soc_mwh": 200.0,
+    "max_soc_mwh": 1000.0,
+    "initial_soc_mwh": 600.0,
+    "grid_limit_mw": 249.0,
+    "annual_target_soc_mwh_for_oracle": null
+  },
+  "execution_step_hours": 1,
+  "replanning_interval_hours": 1,
+  "ordinary_window_terminal_policy": "none",
+  "price_signal_for_planning": "ridge_rtm",
+  "realized_price_for_scoring": "summary keeps normalized revenue_metric for old COVE comparability; hourly CSV also reports raw realized RTM LMP and hourly revenue in USD",
+  "maximum_constraint_violation": 2.842170943040401e-14,
+  "tested_horizons": [
+    168
+  ],
+  "best_forecast_horizon": null
+}

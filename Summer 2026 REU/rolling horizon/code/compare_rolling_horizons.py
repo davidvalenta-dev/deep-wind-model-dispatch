@@ -102,7 +102,7 @@ def save_performance_figures(comparison: pd.DataFrame, output_dir: Path):
             fontweight="bold",
         )
     axis.set_ylim(0, 36)
-    axis.set_ylabel("COVE improvement vs baseload")
+    axis.set_ylabel("COVE improvement vs original comparison baseline")
     axis.set_title("Dispatch value increases as Gurobi sees farther ahead", fontweight="bold")
     axis.legend(frameon=False, loc="lower right")
     style_axis(axis)

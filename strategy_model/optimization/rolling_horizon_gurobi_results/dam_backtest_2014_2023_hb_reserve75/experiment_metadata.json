@@ -1,0 +1,25 @@
+{
+  "training_period": [
+    "1980-01-01 01:00:00",
+    "2013-12-31 23:00:00"
+  ],
+  "backtest_period": [
+    "2014-01-01 00:00:00",
+    "2023-12-29 20:00:00"
+  ],
+  "storage": {
+    "type": "caes",
+    "rating_mw": 100,
+    "duration_hours": 24,
+    "capacity_mwh": 2400,
+    "rte": 0.55,
+    "min_soc_mwh": 480,
+    "max_soc_mwh": 2400,
+    "initial_soc_mwh": 1440.0,
+    "grid_limit_mw": 249
+  },
+  "price_signal_for_planning": "dam_hb_west",
+  "realized_price_for_scoring": "RTM Pyron LMP normalized by the training-period mean after the existing threshold cap",
+  "maximum_constraint_violation": 2.842170943040401e-14,
+  "best_forecast_horizon": 24
+}

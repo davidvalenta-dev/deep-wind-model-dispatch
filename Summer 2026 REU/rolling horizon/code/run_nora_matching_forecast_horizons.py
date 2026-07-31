@@ -38,7 +38,7 @@ SOC0 = (CMIN + CMAX) / 2.0
 GRID_CAP = 249.0
 
 # Annualized cost constants copied from strategy_model/src/util.py plus the
-# CAES 100 MW, 10 h cost setting used in the previous COVE-DV decks.
+# CAES 100 MW, 10 h cost setting used by the current Summer 2026 storage setup.
 FCR = 0.065
 WF_CAPEX = 1968.0
 WF_OPEX = 43.0
@@ -185,6 +185,10 @@ def forecast_metrics(
 ) -> pd.DataFrame:
     rows = []
     for start_lead, end_lead in ((1, 24), (25, 48), (49, 72), (73, 168)):
+        max_lead = forecasts.shape[1]
+        if start_lead > max_lead:
+            continue
+        end_lead = min(end_lead, max_lead)
         lead_indices = np.arange(start_lead - 1, end_lead)
         predicted = forecasts[:, lead_indices].reshape(-1)
         observed = np.concatenate([actual[origin + lead_indices] for origin in origins])
@@ -223,16 +227,15 @@ def solve_window_nora(
     u = model.addVars(hours, vtype=GRB.BINARY, name="u")
 
     model.addConstr(soc[0] == float(np.clip(start_soc, CMIN, CMAX)), name="initial_soc")
-    model.addConstr(soc[hours] == float(np.clip(start_soc, CMIN, CMAX)), name="terminal_soc_after_final_hour")
 
     for t in range(hours):
         model.addConstr(gw[t] <= float(forecast_generation[t]), name=f"direct_wind_limit_{t}")
         model.addConstr(ch[t] <= float(forecast_generation[t]) - gw[t], name=f"wind_only_charge_{t}")
         model.addConstr(ch[t] <= PS * u[t], name=f"charge_mode_{t}")
         model.addConstr(dh[t] <= PS * (1.0 - u[t]), name=f"discharge_mode_{t}")
-        model.addConstr(dh[t] <= soc[t] * RTE, name=f"available_energy_nora_{t}")
+        model.addConstr(dh[t] <= (soc[t] - CMIN) * RTE, name=f"available_energy_nora_{t}")
         model.addConstr(ed[t] == gw[t] + dh[t], name=f"delivered_power_{t}")
-        model.addConstr(soc[t + 1] == soc[t] + ch[t] - dh[t] / SQRT_RTE, name=f"soc_update_{t}")
+        model.addConstr(soc[t + 1] == soc[t] + ch[t] - dh[t] / RTE, name=f"soc_update_{t}")
 
     model.setObjective(
         gp.quicksum(float(forecast_price[t]) * ed[t] for t in range(hours)),
@@ -284,19 +287,17 @@ def execute_frozen_day(
             direct[t] = min(float(planned_direct[t]), remaining_wind, GRID_CAP)
         else:
             mode[t] = 0.0
-            available_by_nora = max(0.0, storage[t] * RTE)
-            available_by_soc_floor = max(0.0, (storage[t] - CMIN) * SQRT_RTE)
+            available_by_soc_floor = max(0.0, (storage[t] - CMIN) * RTE)
             discharge[t] = min(
                 float(planned_discharge[t]),
                 PS,
-                available_by_nora,
                 available_by_soc_floor,
             )
             direct[t] = min(float(planned_direct[t]), generation, max(0.0, GRID_CAP - discharge[t]))
 
         delivered[t] = direct[t] + discharge[t]
         curtailment[t] = max(0.0, generation - direct[t] - charge[t])
-        storage[t + 1] = storage[t] + charge[t] - discharge[t] / SQRT_RTE
+        storage[t + 1] = storage[t] + charge[t] - discharge[t] / RTE
         storage[t + 1] = float(np.clip(storage[t + 1], CMIN, CMAX))
 
     return {
@@ -413,9 +414,9 @@ def continuous_baseload(generation: np.ndarray) -> np.ndarray:
         else:
             direct = min(gen, GRID_CAP)
             needed = max(0.0, target - direct)
-            discharge = min(needed, PS, storage * RTE, (storage - CMIN) * SQRT_RTE, GRID_CAP - direct)
+            discharge = min(needed, PS, (storage - CMIN) * RTE, GRID_CAP - direct)
             delivered[i] = direct + discharge
-            storage = max(CMIN, storage - discharge / SQRT_RTE)
+            storage = max(CMIN, storage - discharge / RTE)
     return delivered
 
 
@@ -434,8 +435,8 @@ def check_realized_constraints(labels: pd.DataFrame) -> dict[str, float]:
         "max_grid_violation": float(np.maximum(delivered - GRID_CAP, 0.0).max()),
         "max_charge_mode_violation": float(np.maximum(charge - PS * mode, 0.0).max()),
         "max_discharge_mode_violation": float(np.maximum(discharge - PS * (1.0 - mode), 0.0).max()),
-        "max_available_energy_violation": float(np.maximum(discharge - start * RTE, 0.0).max()),
-        "max_soc_update_violation": float(np.abs(end - (start + charge - discharge / SQRT_RTE)).max()),
+        "max_available_energy_violation": float(np.maximum(discharge - (start - CMIN) * RTE, 0.0).max()),
+        "max_soc_update_violation": float(np.abs(end - (start + charge - discharge / RTE)).max()),
         "max_soc_low_violation": float(np.maximum(CMIN - start, 0.0).max()),
         "max_soc_high_violation": float(np.maximum(start - CMAX, 0.0).max()),
     }
@@ -515,7 +516,7 @@ def make_figures(
     bars[best_index].set_color("#16a34a")
     for bar, value in zip(bars, ordered["cove_reduction_vs_baseload_pct"]):
         ax.text(bar.get_x() + bar.get_width() / 2, value, f"{value:.2f}%", ha="center", va="bottom", fontweight="bold")
-    ax.set_ylabel("COVE reduction vs baseload (%)")
+    ax.set_ylabel("COVE reduction vs internal storage-baseload (%)")
     ax.set_title("Realistic forecast dispatch: 24h freeze, chronological SoC")
     fig.tight_layout()
     fig.savefig(OUT / "figure_01_forecast_cove_reduction_by_horizon.png", facecolor="white", bbox_inches="tight")
@@ -635,7 +636,7 @@ def make_figures(
         ax.plot(selected["year"], selected["cove_reduction_vs_baseload_pct"], marker="o", label=f"{horizon}h", color=color)
     ax.axhline(0, color="#111827", linewidth=0.8)
     ax.set_xlabel("Year")
-    ax.set_ylabel("COVE reduction vs baseload (%)")
+    ax.set_ylabel("COVE reduction vs internal storage-baseload (%)")
     ax.set_title("Year-by-year realized performance")
     ax.legend(frameon=False, ncol=4)
     fig.tight_layout()

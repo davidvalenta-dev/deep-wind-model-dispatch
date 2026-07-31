@@ -1,0 +1,48 @@
+{
+  "repository": "/Users/davidvalenta/deep-wind-model-dispatch",
+  "repository_remote": "https://github.com/davidvalenta-dev/deep-wind-model-dispatch.git",
+  "code_commit": "2a11eb12348edac377f54399ff763b2a2613878b",
+  "git_status_short": "M \"Summer 2026 REU/README.md\"\n M strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_summary.csv\n?? \"Summer 2026 REU/CHRIS_REQUIRED_ACTIONS_BRIDGE.md\"\n?? docs/\n?? experiments/\n?? strategy_model/optimization/canonical_benchmark_oracle_runner.py\n?? strategy_model/optimization/canonical_benchmarks_2020/",
+  "gurobi_version": "13.0.2",
+  "python": "3.11.9 (v3.11.9:de54cf5be3, Apr  2 2024, 07:12:50) [Clang 13.0.0 (clang-1300.0.29.30)]",
+  "data_audit": {
+    "evaluation_period": "2020-01-01 00:00:00 to 2020-12-31 23:00:00",
+    "rows": 8784,
+    "power_input_file": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/pyron_power.csv",
+    "raw_rtm_lmp_input_file": "/Users/davidvalenta/deep-wind-model-dispatch/data/raw/prices/12cfb125-8fa9-4401-8b0f-9d928544b721.csv",
+    "older_combined_file_not_used": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/dataset_1980-2023_withloads_fix.csv",
+    "older_combined_2020_rows": 8783,
+    "older_combined_missing_hours": [
+      "2020-11-15 23:00:00"
+    ],
+    "alignment": "complete 2020 Pyron power and raw RTM LMP aligned by chronological row order onto a continuous 8784-hour 2020 index",
+    "price_units": "raw, uncapped, unnormalized USD/MWh",
+    "wind_units": "MW",
+    "first_timestamp": "2020-01-01 00:00:00",
+    "last_timestamp": "2020-12-31 23:00:00",
+    "missing_output_hours": [],
+    "duplicate_output_hours": 0,
+    "wind_min_mw": 0.0,
+    "wind_max_mw": 244.507,
+    "price_min_usd_per_mwh": -26.1575,
+    "price_max_usd_per_mwh": 835.449166666667
+  },
+  "storage_config": {
+    "storage_power_mw": 100.0,
+    "storage_duration_h": 10.0,
+    "rte": 0.55,
+    "min_soc_mwh": 200.0,
+    "max_soc_mwh": 1000.0,
+    "initial_soc_mwh": 600.0,
+    "year_end_soc_mwh": 600.0,
+    "grid_cap_mw": 249.0,
+    "target_output_mw": 100.0,
+    "wind_rating_mw": 249.0,
+    "fcr": 0.065,
+    "wind_capex_usd_per_kw": 1968.0,
+    "wind_opex_usd_per_kw_year": 43.0,
+    "caes_capex_usd_per_kw": 1125.33,
+    "caes_opex_usd_per_kw_year": 15.43
+  },
+  "scope": "Chris required actions v1.0: 100-MW constant-output baseload plus H-hour perfect-information oracle RH MILP for 24/48/168 h"
+}

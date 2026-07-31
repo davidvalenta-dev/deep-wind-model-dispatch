@@ -1,0 +1,1 @@
+/Users/davidvalenta/deep-wind-model-dispatch/venv/bin/python /Users/davidvalenta/deep-wind-model-dispatch/strategy_model/optimization/canonical_benchmark_oracle_runner.py --repo /Users/davidvalenta/deep-wind-model-dispatch --out strategy_model/optimization/canonical_benchmarks_2020_test_36h --horizons 36

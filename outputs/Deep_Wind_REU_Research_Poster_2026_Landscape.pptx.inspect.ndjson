@@ -1,0 +1,138 @@
+{"kind":"deck","id":"pr/yj8oy0","name":"Deck"}
+{"kind":"layout","layoutId":"1e50a782-69d0-486f-be8a-49a55b92eddc","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"6e006ced-7f11-4c3e-af22-fee83286d7a5","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/kpctf3","slide":1,"title":"Forecast-Aware Rolling-Horizon Optimization for Hybrid Wind-Storage Dispatch","textShapes":77}
+{"kind":"shape","id":"sh/n61o7uh0","slide":1,"bbox":[0,0,2880,180]}
+{"kind":"textbox","id":"sh/o7a5gzil","slide":1,"text":"Forecast-Aware Rolling-Horizon Optimization for Hybrid Wind-Storage Dispatch","textPreview":"Forecast-Aware Rolling-Horizon Optimization for Hybrid Wind-Storage Dispatch","textChars":76,"textLines":1,"bbox":[70,26,2020,58]}
+{"kind":"textbox","id":"sh/983694z6","slide":1,"text":"David Valenta, North Carolina State University  |  Dr. Chris Qin, Washington State University","textPreview":"David Valenta, North Carolina State University  |  Dr. Chris Qin, Washington State University","textChars":93,"textLines":1,"bbox":[72,92,1500,32]}
+{"kind":"textbox","id":"sh/a9cni90r","slide":1,"text":"Summer 2026 REU  |  Pyron wind farm case study  |  ERCOT LMP data  |  PNNL CAES assumptions","textPreview":"Summer 2026 REU  |  Pyron wind farm case study  |  ERCOT LMP data  |  PNNL CAES assumptions","textChars":91,"textLines":1,"bbox":[72,128,1600,30]}
+{"kind":"shape","id":"sh/valobehc","slide":1,"bbox":[2205,28,600,124]}
+{"kind":"textbox","id":"sh/wbu5kjix","slide":1,"text":"Main takeaway","textPreview":"Main takeaway","textChars":13,"textLines":1,"bbox":[2230,45,250,28]}
+{"kind":"textbox","id":"sh/xc36dozi","slide":1,"text":"A forecast-aware controller must tune forecast horizon, replanning frequency, storage constraints, and scenario count together.","textPreview":"A forecast-aware controller must tune forecast horizon, replanning frequency, storage constraints, and scenario count together.","textChars":127,"textLines":1,"bbox":[2230,76,540,56]}
+{"kind":"shape","id":"sh/qd8n6p0n","slide":1,"bbox":[62,215,668,310]}
+{"kind":"textbox","id":"sh/reh4za18","slide":1,"text":"1. Problem","textPreview":"1. Problem","textChars":10,"textLines":1,"bbox":[84,233,624,34]}
+{"kind":"shape","id":"sh/fqxc3mpw","slide":1,"bbox":[84,272,624,4]}
+{"kind":"textbox","id":"sh/e54vahor","slide":1,"text":"• Wind and electricity price change every hour.\n• A hybrid wind farm can sell wind now or store energy for later.\n• The challenge is dispatching storage before the future is known.\n• The main comparison is the 100 MW constant-output CAES benchmark.\n• Wind-only is kept as secondary reference information.","textPreview":"• Wind and electricity price change every hour. | • A hybrid wind farm can sell wind now or store energy for later. | • The challenge is ...","textChars":304,"textLines":5,"bbox":[90,293,612,150]}
+{"kind":"textbox","id":"sh/1sfu5w72","slide":1,"text":"Why storage helps","textPreview":"Why storage helps","textChars":17,"textLines":1,"bbox":[90,453,612,24]}
+{"kind":"textbox","id":"sh/gr6dcr6h","slide":1,"text":"If wind arrives during a low-price hour, storage can hold part of that energy and release it when the price is higher. The dispatch problem is deciding when that trade is worth it while keeping the battery feasible.","textPreview":"If wind arrives during a low-price hour, storage can hold part of that energy and release it when the price is higher. The dispatch probl...","textChars":215,"textLines":1,"bbox":[90,479,612,42]}
+{"kind":"shape","id":"sh/r2dcz2p0","slide":1,"bbox":[62,550,668,335]}
+{"kind":"textbox","id":"sh/614v6xof","slide":1,"text":"2. Data and Storage","textPreview":"2. Data and Storage","textChars":19,"textLines":1,"bbox":[84,568,624,34]}
+{"kind":"shape","id":"sh/t4vu1c76","slide":1,"bbox":[84,607,624,4]}
+{"kind":"textbox","id":"sh/s3md876l","slide":1,"text":"• Pyron wind farm hourly data, 1980-2023.\n• Forecast trained before 2014; tested on unseen 2014-2023.\n• ERCOT locational marginal price is used for value.\n• CAES: 100 MW, 10 h, 1000 MWh.\n• SoC: 200-1000 MWh, starting at 600 MWh.\n• RTE: 55%, no grid charging, 249 MW grid cap.","textPreview":"• Pyron wind farm hourly data, 1980-2023. | • Forecast trained before 2014; tested on unseen 2014-2023. | • ERCOT locational marginal pri...","textChars":275,"textLines":6,"bbox":[90,628,612,162]}
+{"kind":"textbox","id":"sh/jytcv2po","slide":1,"text":"What the model sees","textPreview":"What the model sees","textChars":19,"textLines":1,"bbox":[90,803,612,24]}
+{"kind":"textbox","id":"sh/ixkb2xoj","slide":1,"text":"The controller does not receive the true future in deployable cases. It receives forecasted wind generation and forecasted price, then the realized data is used later for scoring.","textPreview":"The controller does not receive the true future in deployable cases. It receives forecasted wind generation and forecasted price, then th...","textChars":179,"textLines":1,"bbox":[90,829,612,42]}
+{"kind":"shape","id":"sh/mtkvexsb","slide":1,"bbox":[66,914,660,262]}
+{"kind":"textbox","id":"sh/8v2dgnah","slide":1,"text":"Forecast result: causal lag/ridge was the best power forecast, with 21.24 MW RMSE.","textPreview":"Forecast result: causal lag/ridge was the best power forecast, with 21.24 MW RMSE.","textChars":82,"textLines":1,"bbox":[82,1178,628,46]}
+{"kind":"shape","id":"sh/9wbe9srm","slide":1,"bbox":[762,209,660,212]}
+{"kind":"textbox","id":"sh/vytwb29s","slide":1,"text":"The pipeline predicts wind/price, sends those forecasts to Gurobi, executes dispatch, then scores revenue and COVE.","textPreview":"The pipeline predicts wind/price, sends those forecasts to Gurobi, executes dispatch, then scores revenue and COVE.","textChars":115,"textLines":1,"bbox":[778,423,628,42]}
+{"kind":"textbox","id":"sh/wzmdk7ad","slide":1,"text":"The important idea is separation: forecasts are guesses, Gurobi is the planner, and realized operation is the final truth used for revenue and COVE.","textPreview":"The important idea is separation: forecasts are guesses, Gurobi is the planner, and realized operation is the final truth used for revenu...","textChars":148,"textLines":1,"bbox":[778,467,628,34]}
+{"kind":"shape","id":"sh/h0vedcry","slide":1,"bbox":[758,507,668,368]}
+{"kind":"textbox","id":"sh/i14vmhsj","slide":1,"text":"3. MILP Dispatch","textPreview":"3. MILP Dispatch","textChars":16,"textLines":1,"bbox":[780,525,624,34]}
+{"kind":"shape","id":"sh/j2dwfm94","slide":1,"bbox":[780,564,624,4]}
+{"kind":"textbox","id":"sh/d8zq10fi","slide":1,"text":"• Gurobi chooses direct wind, charge, discharge, SoC, and curtailment.\n• Charging must come from wind, not the grid.\n• The battery cannot charge and discharge beyond its physical limits.\n• Revenue is delivered power times realized price.\n• COVE is lower when energy is delivered at higher value.","textPreview":"• Gurobi chooses direct wind, charge, discharge, SoC, and curtailment. | • Charging must come from wind, not the grid. | • The battery ca...","textChars":295,"textLines":5,"bbox":[786,585,612,196]}
+{"kind":"shape","id":"sh/s7qpsvyx","slide":1,"bbox":[764,774,656,192]}
+{"kind":"shape","id":"sh/q587q5gr","slide":1,"bbox":[762,994,660,232]}
+{"kind":"textbox","id":"sh/0vapwfyt","slide":1,"text":"The ladder is not just decoration: each step adds one layer of information or control. Forecasting answers what may happen; rolling horizon decides how far to plan; scenarios add uncertainty; oracle shows the ceiling.","textPreview":"The ladder is not just decoration: each step adds one layer of information or control. Forecasting answers what may happen; rolling horiz...","textChars":217,"textLines":1,"bbox":[778,1225,628,52]}
+{"kind":"shape","id":"sh/fuh83ax8","slide":1,"bbox":[1454,215,153.64,54]}
+{"kind":"textbox","id":"sh/e987u5g3","slide":1,"text":"Part","textPreview":"Part","textChars":4,"textLines":1,"bbox":[1464,223,133.64,42]}
+{"kind":"shape","id":"sh/90jq9kfq","slide":1,"bbox":[1607.64,215,280.56,54]}
+{"kind":"textbox","id":"sh/ozap0fe5","slide":1,"text":"What changed","textPreview":"What changed","textChars":12,"textLines":1,"bbox":[1617.64,223,260.56,42]}
+{"kind":"shape","id":"sh/kvet8jid","slide":1,"bbox":[1888.2,215,233.8,54]}
+{"kind":"textbox","id":"sh/lwna1ozy","slide":1,"text":"Best output","textPreview":"Best output","textChars":11,"textLines":1,"bbox":[1898.2,223,213.8,42]}
+{"kind":"shape","id":"sh/ytcb6t07","slide":1,"bbox":[1454,269,153.64,54]}
+{"kind":"textbox","id":"sh/julszehs","slide":1,"text":"Forecast","textPreview":"Forecast","textChars":8,"textLines":1,"bbox":[1464,277,133.64,42]}
+{"kind":"shape","id":"sh/wru94ji1","slide":1,"bbox":[1607.64,269,280.56,54]}
+{"kind":"textbox","id":"sh/xs3axozm","slide":1,"text":"Predict wind power from past values","textPreview":"Predict wind power from past values","textChars":35,"textLines":1,"bbox":[1617.64,277,260.56,42]}
+{"kind":"shape","id":"sh/apcr290b","slide":1,"bbox":[1888.2,269,233.8,54]}
+{"kind":"textbox","id":"sh/bqlsvehg","slide":1,"text":"21.24 MW RMSE","textPreview":"21.24 MW RMSE","textChars":13,"textLines":1,"bbox":[1898.2,277,213.8,42]}
+{"kind":"shape","id":"sh/gnyt03yl","slide":1,"bbox":[1454,323,153.64,54]}
+{"kind":"textbox","id":"sh/ho7a98zq","slide":1,"text":"Rolling horizon","textPreview":"Rolling horizon","textChars":15,"textLines":1,"bbox":[1464,331,133.64,42]}
+{"kind":"shape","id":"sh/ri9wz218","slide":1,"bbox":[1607.64,323,280.56,54]}
+{"kind":"textbox","id":"sh/qh0v6h0n","slide":1,"text":"One forecast path into Gurobi","textPreview":"One forecast path into Gurobi","textChars":29,"textLines":1,"bbox":[1617.64,331,260.56,42]}
+{"kind":"shape","id":"sh/dkre1cjy","slide":1,"bbox":[1888.2,323,233.8,54]}
+{"kind":"textbox","id":"sh/sjid87it","slide":1,"text":"48 h: 20.63% COVE gain","textPreview":"48 h: 20.63% COVE gain","textChars":22,"textLines":1,"bbox":[1898.2,331,213.8,42]}
+{"kind":"shape","id":"sh/fmtw3m14","slide":1,"bbox":[1454,377,153.64,54]}
+{"kind":"textbox","id":"sh/elkvah0j","slide":1,"text":"Scenarios","textPreview":"Scenarios","textChars":9,"textLines":1,"bbox":[1464,385,133.64,42]}
+{"kind":"shape","id":"sh/1obe5wja","slide":1,"bbox":[1607.64,377,280.56,54]}
+{"kind":"textbox","id":"sh/0n2dcrip","slide":1,"text":"Multiple possible futures","textPreview":"Multiple possible futures","textChars":25,"textLines":1,"bbox":[1617.64,385,260.56,42]}
+{"kind":"shape","id":"sh/vqpcri10","slide":1,"bbox":[1888.2,377,233.8,54]}
+{"kind":"textbox","id":"sh/upgvydkf","slide":1,"text":"3 scenarios: 40.18% COVE gain","textPreview":"3 scenarios: 40.18% COVE gain","textChars":29,"textLines":1,"bbox":[1898.2,385,213.8,42]}
+{"kind":"shape","id":"sh/y5oz6lk3","slide":1,"bbox":[1454,431,153.64,54]}
+{"kind":"textbox","id":"sh/j6xgzqlo","slide":1,"text":"Oracle","textPreview":"Oracle","textChars":6,"textLines":1,"bbox":[1464,439,133.64,42]}
+{"kind":"shape","id":"sh/k76h8v2t","slide":1,"bbox":[1607.64,431,280.56,54]}
+{"kind":"textbox","id":"sh/l8fy103e","slide":1,"text":"Perfect future information","textPreview":"Perfect future information","textChars":26,"textLines":1,"bbox":[1617.64,439,260.56,42]}
+{"kind":"shape","id":"sh/ah4f2lkr","slide":1,"bbox":[1888.2,431,233.8,54]}
+{"kind":"textbox","id":"sh/bidgvqlc","slide":1,"text":"168 h: 40.87% COVE gain","textPreview":"168 h: 40.87% COVE gain","textChars":23,"textLines":1,"bbox":[1898.2,439,213.8,42]}
+{"kind":"shape","id":"sh/w3mh4v2x","slide":1,"bbox":[1458,519,660,257]}
+{"kind":"textbox","id":"sh/2d4fy1kv","slide":1,"text":"Deterministic rolling horizon: 48 hours gave the best COVE gain because it looked far enough ahead without trusting a weak long forecast too much.","textPreview":"Deterministic rolling horizon: 48 hours gave the best COVE gain because it looked far enough ahead without trusting a weak long forecast ...","textChars":146,"textLines":1,"bbox":[1474,780,628,62]}
+{"kind":"shape","id":"sh/nedgr6lg","slide":1,"bbox":[1458,869,660,247]}
+{"kind":"textbox","id":"sh/4jutk3qp","slide":1,"text":"Longer horizons did not automatically improve realistic dispatch. Planning value and forecast error have to balance.","textPreview":"Longer horizons did not automatically improve realistic dispatch. Planning value and forecast error have to balance.","textChars":116,"textLines":1,"bbox":[1474,1120,628,50]}
+{"kind":"shape","id":"sh/3ilsry94","slide":1,"bbox":[1454,1190,668,88]}
+{"kind":"textbox","id":"sh/2hcrit8j","slide":1,"text":"How to read these results","textPreview":"How to read these results","textChars":25,"textLines":1,"bbox":[1476,1205,624,24]}
+{"kind":"textbox","id":"sh/hgjap8ry","slide":1,"text":"A higher COVE gain is better because it means the same storage system delivered energy at higher value compared with the 100 MW benchmark.","textPreview":"A higher COVE gain is better because it means the same storage system delivered energy at higher value compared with the 100 MW benchmark.","textChars":138,"textLines":1,"bbox":[1476,1233,624,34]}
+{"kind":"shape","id":"sh/gfa9g3qd","slide":1,"bbox":[2150,215,668,145]}
+{"kind":"textbox","id":"sh/fe1sny9s","slide":1,"text":"4. Results","textPreview":"4. Results","textChars":10,"textLines":1,"bbox":[2172,233,624,34]}
+{"kind":"shape","id":"sh/udsret8n","slide":1,"bbox":[2172,272,624,4]}
+{"kind":"textbox","id":"sh/tcjalor2","slide":1,"text":"Primary benchmark: 100 MW constant-output CAES. Wind-only remains secondary context.","textPreview":"Primary benchmark: 100 MW constant-output CAES. Wind-only remains secondary context.","textChars":84,"textLines":1,"bbox":[2178,291,612,45]}
+{"kind":"shape","id":"sh/sba9cjqh","slide":1,"bbox":[2150,390,325,120]}
+{"kind":"textbox","id":"sh/kf25ovyd","slide":1,"text":"21.24 MW","textPreview":"21.24 MW","textChars":8,"textLines":1,"bbox":[2168,403,289,36]}
+{"kind":"textbox","id":"sh/lgb6h0zy","slide":1,"text":"Forecast RMSE","textPreview":"Forecast RMSE","textChars":13,"textLines":1,"bbox":[2168,445,289,26]}
+{"kind":"textbox","id":"sh/yd0nm5g7","slide":1,"text":"causal lag/ridge","textPreview":"causal lag/ridge","textChars":16,"textLines":1,"bbox":[2168,474,289,24]}
+{"kind":"shape","id":"sh/je9ofqhs","slide":1,"bbox":[2493,390,325,120]}
+{"kind":"textbox","id":"sh/832pcfyp","slide":1,"text":"20.63%","textPreview":"20.63%","textChars":6,"textLines":1,"bbox":[2511,403,289,36]}
+{"kind":"textbox","id":"sh/t4b6lkzu","slide":1,"text":"Deterministic","textPreview":"Deterministic","textChars":13,"textLines":1,"bbox":[2511,445,289,26]}
+{"kind":"textbox","id":"sh/6hk7q5gj","slide":1,"text":"48 h COVE gain","textPreview":"48 h COVE gain","textChars":14,"textLines":1,"bbox":[2511,474,289,24]}
+{"kind":"shape","id":"sh/7itojah4","slide":1,"bbox":[2150,530,325,120]}
+{"kind":"textbox","id":"sh/g7mpgfyl","slide":1,"text":"40.18%","textPreview":"40.18%","textChars":6,"textLines":1,"bbox":[2168,543,289,36]}
+{"kind":"textbox","id":"sh/h8v6pkz6","slide":1,"text":"Scenario","textPreview":"Scenario","textChars":8,"textLines":1,"bbox":[2168,585,289,26]}
+{"kind":"textbox","id":"sh/beh0vi5k","slide":1,"text":"3 scenarios, hourly replan","textPreview":"3 scenarios, hourly replan","textChars":26,"textLines":1,"bbox":[2168,614,289,24]}
+{"kind":"shape","id":"sh/qd8z2d4z","slide":1,"bbox":[2493,530,325,120]}
+{"kind":"textbox","id":"sh/dgzixsnq","slide":1,"text":"40.87%","textPreview":"40.87%","textChars":6,"textLines":1,"bbox":[2511,543,289,36]}
+{"kind":"textbox","id":"sh/cfqh4nm5","slide":1,"text":"Oracle","textPreview":"Oracle","textChars":6,"textLines":1,"bbox":[2511,585,289,26]}
+{"kind":"textbox","id":"sh/3ax07y58","slide":1,"text":"168 h perfect future","textPreview":"168 h perfect future","textChars":20,"textLines":1,"bbox":[2511,614,289,24]}
+{"kind":"shape","id":"sh/29ozyd43","slide":1,"bbox":[2154,684,660,257]}
+{"kind":"textbox","id":"sh/obqh03mt","slide":1,"text":"Scenario result: 3 scenarios performed best. More scenarios became more cautious and did not add enough value.","textPreview":"Scenario result: 3 scenarios performed best. More scenarios became more cautious and did not add enough value.","textChars":110,"textLines":1,"bbox":[2170,945,628,50]}
+{"kind":"shape","id":"sh/n610325s","slide":1,"bbox":[2154,1009,660,212]}
+{"kind":"textbox","id":"sh/rylcbuh4","slide":1,"text":"Revenue and COVE move together here: the strongest scenario case both earns more and lowers COVE against the benchmark.","textPreview":"Revenue and COVE move together here: the strongest scenario case both earns more and lowers COVE against the benchmark.","textChars":119,"textLines":1,"bbox":[2170,1225,628,40]}
+{"kind":"shape","id":"sh/qxcb2p0j","slide":1,"bbox":[62,1325,1360,405]}
+{"kind":"textbox","id":"sh/dk3ud4za","slide":1,"text":"5. Main Conclusion","textPreview":"5. Main Conclusion","textChars":18,"textLines":1,"bbox":[88,1349,1280,34]}
+{"kind":"shape","id":"sh/cjut4zip","slide":1,"bbox":[88,1388,1280,4]}
+{"kind":"textbox","id":"sh/zmlcfehg","slide":1,"text":"• The strongest realistic result came from the scenario-based controller because it planned under multiple possible futures and corrected decisions quickly.\n• The deterministic 48 h case is useful because it shows the best one-forecast version of the method.\n• The oracle is not realistic, but it shows the upper bound if future wind and price were known perfectly.\n• The core claim is not just that Gurobi optimizes dispatch. The key result is that forecast design and dispatch design have to be tuned together.\n• This matters for real wind farms because storage decisions are only useful when they respect uncertainty and physical constraints at the same time.","textPreview":"• The strongest realistic result came from the scenario-based controller because it planned under multiple possible futures and corrected...","textChars":662,"textLines":5,"bbox":[94,1415,1280,245]}
+{"kind":"shape","id":"sh/elcb690v","slide":1,"bbox":[94,1607,392,72]}
+{"kind":"textbox","id":"sh/1onuh4z6","slide":1,"text":"Best realistic method","textPreview":"Best realistic method","textChars":21,"textLines":1,"bbox":[114,1621,340,22]}
+{"kind":"textbox","id":"sh/0net8ji1","slide":1,"text":"3 scenarios with hourly replanning","textPreview":"3 scenarios with hourly replanning","textChars":34,"textLines":1,"bbox":[114,1647,340,24]}
+{"kind":"shape","id":"sh/fq1s3ahw","slide":1,"bbox":[518,1607,392,72]}
+{"kind":"textbox","id":"sh/upsba50r","slide":1,"text":"Why it worked","textPreview":"Why it worked","textChars":13,"textLines":1,"bbox":[538,1621,340,22]}
+{"kind":"textbox","id":"sh/kv694by9","slide":1,"text":"It reacted faster to forecast mistakes.","textPreview":"It reacted faster to forecast mistakes.","textChars":39,"textLines":1,"bbox":[538,1647,340,24]}
+{"kind":"shape","id":"sh/5wzqdgfu","slide":1,"bbox":[942,1607,392,72]}
+{"kind":"textbox","id":"sh/itor21gj","slide":1,"text":"Oracle meaning","textPreview":"Oracle meaning","textChars":14,"textLines":1,"bbox":[962,1621,340,22]}
+{"kind":"textbox","id":"sh/jux8b6xo","slide":1,"text":"It is the perfect-future ceiling.","textPreview":"It is the perfect-future ceiling.","textChars":33,"textLines":1,"bbox":[962,1647,340,24]}
+{"kind":"textbox","id":"sh/w7690byd","slide":1,"text":"Best result: 3-scenario forecast-aware rolling-horizon dispatch improved COVE by 40.18% vs the 100 MW benchmark.","textPreview":"Best result: 3-scenario forecast-aware rolling-horizon dispatch improved COVE by 40.18% vs the 100 MW benchmark.","textChars":112,"textLines":1,"bbox":[94,1687,1280,30]}
+{"kind":"shape","id":"sh/x8fq9gfy","slide":1,"bbox":[1457,1325,1360,405]}
+{"kind":"textbox","id":"sh/a5o7y1g7","slide":1,"text":"Definitions and Acknowledgements","textPreview":"Definitions and Acknowledgements","textChars":32,"textLines":1,"bbox":[1487,1349,720,34]}
+{"kind":"textbox","id":"sh/v6x876hs","slide":1,"text":"• 100 MW benchmark: rule-based storage case that tries to deliver 100 MW every hour.\n• Rolling horizon: solve the future, execute the near-term action, update SoC, then solve again.\n• Scenario dispatch: solve several possible futures instead of one forecast.\n• Oracle: perfect future information, used only as a ceiling.\n• COVE: cost divided by valued delivered energy; lower is better.\n• All reported runs use chronological SoC and checked storage/grid constraints.","textPreview":"• 100 MW benchmark: rule-based storage case that tries to deliver 100 MW every hour. | • Rolling horizon: solve the future, execute the n...","textChars":466,"textLines":6,"bbox":[1487,1401,760,220]}
+{"kind":"shape","id":"sh/g3q9cvyh","slide":1,"bbox":[1487,1627,230,64]}
+{"kind":"textbox","id":"sh/h4jql0f2","slide":1,"text":"Best forecast","textPreview":"Best forecast","textChars":13,"textLines":1,"bbox":[1504,1639,196,20]}
+{"kind":"textbox","id":"sh/pkfq5076","slide":1,"text":"21.24 MW RMSE","textPreview":"21.24 MW RMSE","textChars":13,"textLines":1,"bbox":[1504,1663,196,20]}
+{"kind":"shape","id":"sh/oj69wvql","slide":1,"bbox":[1734,1627,230,64]}
+{"kind":"textbox","id":"sh/3ix83qp0","slide":1,"text":"Best realistic","textPreview":"Best realistic","textChars":14,"textLines":1,"bbox":[1751,1639,196,20]}
+{"kind":"textbox","id":"sh/2h4rul8v","slide":1,"text":"3 scenarios","textPreview":"3 scenarios","textChars":11,"textLines":1,"bbox":[1751,1663,196,20]}
+{"kind":"shape","id":"sh/1gvq1g7a","slide":1,"bbox":[1981,1627,230,64]}
+{"kind":"textbox","id":"sh/gfmpsbqp","slide":1,"text":"Upper bound","textPreview":"Upper bound","textChars":11,"textLines":1,"bbox":[1998,1639,196,20]}
+{"kind":"textbox","id":"sh/fed8zqp4","slide":1,"text":"40.87% COVE","textPreview":"40.87% COVE","textChars":11,"textLines":1,"bbox":[1998,1663,196,20]}
+{"kind":"textbox","id":"sh/ed47ql8j","slide":1,"text":"Thank you to Dr. Chris Qin, Nora Hosseiniimeni, Zach Lawrence, Jessica Yao, and the WSU Summer Research Program. Data and assumptions draw from the Pyron wind-storage dataset, ERCOT LMP records, and PNNL CAES storage references.","textPreview":"Thank you to Dr. Chris Qin, Nora Hosseiniimeni, Zach Lawrence, Jessica Yao, and the WSU Summer Research Program. Data and assumptions dra...","textChars":228,"textLines":1,"bbox":[2282,1401,500,170]}
+{"kind":"textbox","id":"sh/tsvqxg7y","slide":1,"text":"What I tested","textPreview":"What I tested","textChars":13,"textLines":1,"bbox":[2282,1555,460,24]}
+{"kind":"textbox","id":"sh/srmpobqd","slide":1,"text":"Forecast models, deterministic horizons, scenario counts, oracle ceiling, and constraint checks.","textPreview":"Forecast models, deterministic horizons, scenario counts, oracle ceiling, and constraint checks.","textChars":96,"textLines":1,"bbox":[2282,1583,500,44]}
+{"kind":"textbox","id":"sh/ylgfidkz","slide":1,"text":"Contact: dvalent2@ncsu.edu","textPreview":"Contact: dvalent2@ncsu.edu","textChars":26,"textLines":1,"bbox":[2282,1645,460,28]}
+{"kind":"textbox","id":"sh/jm9wbi1k","slide":1,"text":"Poster size: 30 in x 20 in","textPreview":"Poster size: 30 in x 20 in","textChars":26,"textLines":1,"bbox":[2282,1677,460,24]}
+{"kind":"shape","id":"sh/knixkn25","slide":1,"bbox":[62,1770,2755,4]}
+{"kind":"textbox","id":"sh/l8redsjq","slide":1,"text":"Primary metrics compare against the 100 MW constant-output CAES benchmark; wind-only is retained only as a secondary reference.","textPreview":"Primary metrics compare against the 100 MW constant-output CAES benchmark; wind-only is retained only as a secondary reference.","textChars":127,"textLines":1,"bbox":[62,1787,2755,28]}
+{"kind":"image","id":"im/8ze58vm5","slide":1,"name":"","alt":"Forecast model RMSE comparison","bbox":[72,920,648,250]}
+{"kind":"image","id":"im/lwnmxg3e","slide":1,"name":"","alt":"Pipeline diagram","bbox":[768,215,648,200]}
+{"kind":"image","id":"im/ozalcr2l","slide":1,"name":"","alt":"Storage constraints table","bbox":[770,780,644,180]}
+{"kind":"image","id":"im/e98j6xkj","slide":1,"name":"","alt":"Research ladder","bbox":[768,1000,648,220]}
+{"kind":"image","id":"im/ips3ixs3","slide":1,"name":"","alt":"Rolling horizon COVE gain","bbox":[1464,525,648,245]}
+{"kind":"image","id":"im/q1ozi98n","slide":1,"name":"","alt":"Revenue by horizon","bbox":[1464,875,648,235]}
+{"kind":"image","id":"im/qt8vy58f","slide":1,"name":"","alt":"Scenario COVE improvement","bbox":[2160,690,648,245]}
+{"kind":"image","id":"im/psfu50ra","slide":1,"name":"","alt":"Scenario revenue and COVE tradeoff","bbox":[2160,1015,648,200]}
+{"kind":"notes","id":"nt/kpctf3","slide":1,"text":""}

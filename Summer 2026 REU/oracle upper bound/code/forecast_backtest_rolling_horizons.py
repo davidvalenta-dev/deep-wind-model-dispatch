@@ -1,9 +1,11 @@
 """Backtest rolling-horizon Gurobi dispatch with causal forecasts.
 
 The forecasting models are trained on an early chronological period and frozen.
-During the later backtest, every daily forecast uses only values observed before
-that forecast was issued. Gurobi plans from forecast wind generation and price,
-but only the first 24 hours are executed and scored against actual outcomes.
+During the later backtest, each forecast uses only values observed before that
+forecast was issued. Gurobi plans from forecast wind generation and price, but
+only the configured execution block is scored against actual outcomes before
+the controller replans. The oracle wrapper reports a daily-replan oracle and a
+separate hourly 168-hour perfect-future ceiling.
 """
 
 from __future__ import annotations
@@ -28,11 +30,14 @@ os.environ["LC_ALL"] = "C"
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SUMMER_STEP_DIR = Path(__file__).resolve().parents[1]
+LOCAL_CODE_DIR = Path(__file__).resolve().parent
 STRATEGY_SRC = REPO_ROOT / "strategy_model" / "src"
 OPTIMIZATION_DIR = REPO_ROOT / "strategy_model" / "optimization"
-for module_path in (STRATEGY_SRC, OPTIMIZATION_DIR):
-    if str(module_path) not in sys.path:
-        sys.path.insert(0, str(module_path))
+for module_path in (OPTIMIZATION_DIR, STRATEGY_SRC, LOCAL_CODE_DIR):
+    module_path_text = str(module_path)
+    while module_path_text in sys.path:
+        sys.path.remove(module_path_text)
+    sys.path.insert(0, module_path_text)
 
 import util  # noqa: E402
 from rolling_horizon_gurobi_dispatch import (  # noqa: E402
@@ -44,7 +49,7 @@ from rolling_horizon_gurobi_dispatch import (  # noqa: E402
 
 
 PAST_LAGS = (1, 2, 3, 6, 12, 24, 48, 168)
-DEFAULT_HORIZONS = (24, 48, 72, 168)
+DEFAULT_HORIZONS = (24, 48, 168)
 
 
 @dataclass
@@ -174,7 +179,10 @@ def make_forecast_matrix(
     forecasts = np.empty((len(origins), max_horizon), dtype=float)
     for row_index, origin in enumerate(origins):
         base = single_origin_features(values, int(origin))
-        target_times = datetimes.iloc[origin : origin + max_horizon]
+        target_indices = np.minimum(
+            np.arange(origin, origin + max_horizon), len(values) - 1
+        )
+        target_times = datetimes.iloc[target_indices]
         calendar = calendar_features(target_times)
         for lead_index, model in enumerate(models):
             features = np.concatenate(
@@ -182,7 +190,7 @@ def make_forecast_matrix(
             )
             if known_future_values is not None:
                 features = np.concatenate(
-                    [features, [known_future_values[origin + lead_index]]]
+                    [features, [known_future_values[target_indices[lead_index]]]]
                 )
             forecasts[row_index, lead_index] = model.predict(features)
     return forecasts
@@ -195,7 +203,10 @@ def make_known_future_matrix(
 ) -> np.ndarray:
     forecasts = np.empty((len(origins), max_horizon), dtype=float)
     for row_index, origin in enumerate(origins):
-        forecasts[row_index, :] = values[origin : origin + max_horizon]
+        target_indices = np.minimum(
+            np.arange(origin, origin + max_horizon), len(values) - 1
+        )
+        forecasts[row_index, :] = values[target_indices]
     return forecasts
 
 
@@ -213,10 +224,18 @@ def forecast_metrics(
             continue
         end_lead = min(end_lead, max_lead)
         lead_indices = np.arange(start_lead - 1, end_lead)
-        predicted = forecasts[:, lead_indices].reshape(-1)
-        observed = np.concatenate(
-            [actual[origin + lead_indices] for origin in origins]
-        )
+        predicted_blocks = []
+        observed_blocks = []
+        for row_index, origin in enumerate(origins):
+            valid_leads = lead_indices[origin + lead_indices < len(actual)]
+            if len(valid_leads) == 0:
+                continue
+            predicted_blocks.append(forecasts[row_index, valid_leads])
+            observed_blocks.append(actual[origin + valid_leads])
+        if not predicted_blocks:
+            continue
+        predicted = np.concatenate(predicted_blocks)
+        observed = np.concatenate(observed_blocks)
         errors = predicted - observed
         rows.append(
             {
@@ -325,7 +344,15 @@ def check_realized_constraints(
     start = labels["soc_start"].to_numpy()
     end = labels["soc_end"].to_numpy()
     mode = labels["mode_binary_charge"].to_numpy()
+    timestamps = pd.to_datetime(labels["datetime"])
+    chronological_error_count = 0
+    if len(timestamps) > 1:
+        hour_steps = timestamps.diff().dropna().dt.total_seconds().to_numpy() / 3600.0
+        chronological_error_count = int(np.sum(np.abs(hour_steps - 1.0) > 1e-9))
+    hourly_revenue = labels["hourly_revenue_USD"].to_numpy()
+    raw_price = labels["actual_RTM_USD_per_MWh"].to_numpy()
     return {
+        "chronological_hour_step_error_count": chronological_error_count,
         "max_wind_only_violation": float(
             np.maximum(direct + charge - gen, 0).max()
         ),
@@ -349,7 +376,110 @@ def check_realized_constraints(
         ),
         "max_soc_lower_violation": float(np.maximum(min_soc - start, 0).max()),
         "max_soc_upper_violation": float(np.maximum(start - max_soc, 0).max()),
+        "curtailment_negative_count": int(np.sum(labels["realized_curtailment"].to_numpy() < -1e-9)),
+        "hourly_revenue_sum_error_usd": float(
+            abs(hourly_revenue.sum() - np.sum(delivered * raw_price))
+        ),
     }
+
+
+def year_end_soc_targets(
+    timestamps: pd.Series,
+    origin: int,
+    available_horizon: int,
+    annual_target_soc_mwh: float | None,
+) -> dict[int, float]:
+    """Return SoC-index targets for Dec. 31 23:00 hours inside a window."""
+    if annual_target_soc_mwh is None:
+        return {}
+    targets: dict[int, float] = {}
+    window_times = pd.to_datetime(timestamps.iloc[origin : origin + available_horizon])
+    for offset, stamp in enumerate(window_times):
+        if stamp.month == 12 and stamp.day == 31 and stamp.hour == 23:
+            targets[offset + 1] = float(annual_target_soc_mwh)
+    return targets
+
+
+def annual_soc_qa(labels: pd.DataFrame, annual_target_soc_mwh: float | None) -> dict[str, float | int]:
+    if annual_target_soc_mwh is None or labels.empty:
+        return {
+            "annual_soc_target_mwh": math.nan,
+            "annual_soc_target_violation_count": 0,
+            "annual_soc_target_max_abs_error": 0.0,
+        }
+    timestamps = pd.to_datetime(labels["datetime"])
+    mask = (timestamps.dt.month == 12) & (timestamps.dt.day == 31) & (timestamps.dt.hour == 23)
+    if not mask.any():
+        return {
+            "annual_soc_target_mwh": float(annual_target_soc_mwh),
+            "annual_soc_target_violation_count": 0,
+            "annual_soc_target_max_abs_error": 0.0,
+        }
+    errors = np.abs(labels.loc[mask, "soc_end"].to_numpy(dtype=float) - float(annual_target_soc_mwh))
+    return {
+        "annual_soc_target_mwh": float(annual_target_soc_mwh),
+        "annual_soc_target_violation_count": int(np.sum(errors > 1e-5)),
+        "annual_soc_target_max_abs_error": float(errors.max()),
+    }
+
+
+def wind_only_delivery(power: np.ndarray, config: dict) -> np.ndarray:
+    """No-storage baseline: deliver actual wind directly up to grid capacity."""
+    return np.minimum(np.maximum(power, 0.0), float(config["rated_capacity"]))
+
+
+def constant_output_100mw_delivery(
+    power: np.ndarray,
+    config: dict,
+    initial_soc: float,
+    min_soc_frac: float,
+    max_soc_frac: float,
+    target_mw: float = 100.0,
+) -> np.ndarray:
+    """Chris's 100-MW rule-based wind-storage benchmark."""
+    rating = float(config["storage_rating"] * config["num_modules"])
+    capacity = float(
+        config["storage_rating"] * config["storage_duration"] * config["num_modules"]
+    )
+    rte = float(
+        util.get_rte(
+            config["storage_type"],
+            config["storage_rating"],
+            config["storage_duration"],
+        )
+    )
+    grid_cap = float(config["rated_capacity"])
+    min_soc = capacity * min_soc_frac
+    max_soc = capacity * max_soc_frac
+    soc = float(np.clip(initial_soc, min_soc, max_soc))
+    delivered = np.zeros(len(power), dtype=float)
+
+    for idx, generation_value in enumerate(power):
+        generation = max(0.0, float(generation_value))
+        if generation >= target_mw:
+            direct = min(target_mw, grid_cap)
+            room = max(0.0, max_soc - soc)
+            charge = min(generation - direct, rating, room)
+            delivered[idx] = direct
+            soc += charge
+        else:
+            direct = min(generation, grid_cap)
+            needed = max(0.0, target_mw - direct)
+            discharge = min(
+                needed,
+                rating,
+                max(0.0, (soc - min_soc) * rte),
+                max(0.0, grid_cap - direct),
+            )
+            delivered[idx] = direct + discharge
+            soc -= discharge / rte
+    return delivered
+
+
+def cost_over_revenue(cost: float, revenue: float) -> float:
+    if revenue <= 0:
+        return math.inf
+    return float(cost / revenue)
 
 
 def apply_direct_reserve(
@@ -387,15 +517,22 @@ def run_horizon(
     price_forecasts: np.ndarray,
     horizon: int,
     config: dict,
+    primary_baseline_config: dict,
     initial_soc: float,
+    primary_baseline_initial_soc: float,
     min_soc_frac: float,
     max_soc_frac: float,
     mip_gap: float,
     perfect_information: bool,
     direct_reserve_mw: float,
+    execution_step_hours: int,
+    replanning_interval_hours: int,
+    terminal_policy: str,
+    annual_target_soc_mwh: float | None,
 ) -> tuple[pd.DataFrame, dict]:
     actual_generation = df["power_generated"].to_numpy(dtype=float)
     actual_price = df["price_normalized"].to_numpy(dtype=float)
+    raw_price = df["raw_RTM_USD_per_MWh"].to_numpy(dtype=float)
     current_soc = initial_soc
     rows = []
     solver_runtime = 0.0
@@ -403,7 +540,7 @@ def run_horizon(
 
     for origin_row, origin in enumerate(origins):
         available_horizon = min(horizon, len(df) - origin)
-        execute_len = min(24, len(df) - origin)
+        execute_len = min(execution_step_hours, available_horizon, len(df) - origin)
         if execute_len <= 0:
             break
 
@@ -416,16 +553,27 @@ def run_horizon(
             ]
             planned_price = price_forecasts[origin_row, :available_horizon]
 
+        soc_targets = (
+            year_end_soc_targets(
+                df["datetime"],
+                int(origin),
+                available_horizon,
+                annual_target_soc_mwh,
+            )
+            if perfect_information
+            else {}
+        )
         solution = solve_window(
             planned_generation,
             planned_price,
             config,
             current_soc,
-            "equal-initial",
+            terminal_policy,
             min_soc_frac,
             max_soc_frac,
             mip_gap,
             None,
+            soc_targets=soc_targets,
         )
         solver_runtime += float(solution["runtime"])
         execution_plan = apply_direct_reserve(
@@ -448,24 +596,42 @@ def run_horizon(
                 {
                     "hour_index": hour,
                     "datetime": df["datetime"].iloc[hour],
+                    "timestamp_UTC": pd.Timestamp(df["datetime"].iloc[hour]).strftime("%Y-%m-%d %H:%M:%S"),
                     "horizon_hours": horizon,
+                    "planning_horizon_hours": horizon,
+                    "execution_step_hours": execution_step_hours,
+                    "replanning_interval_hours": replanning_interval_hours,
                     "perfect_information": perfect_information,
                     "actual_generation": actual_generation[hour],
+                    "actual_wind_MW": actual_generation[hour],
                     "forecast_generation": planned_generation[k],
                     "actual_price": actual_price[hour],
+                    "actual_RTM_USD_per_MWh": raw_price[hour],
                     "forecast_price": planned_price[k],
+                    "target_output_MW": np.nan,
                     "optimized_direct": float(solution["direct"][k]),
                     "planned_direct": float(execution_plan["direct"][k]),
                     "planned_charge": float(solution["charge"][k]),
                     "planned_discharge": float(solution["discharge"][k]),
                     "realized_direct": realized["direct"][k],
+                    "direct_wind_MW": realized["direct"][k],
                     "realized_charge": realized["charge"][k],
+                    "charge_MW": realized["charge"][k],
                     "realized_discharge": realized["discharge"][k],
+                    "discharge_MW": realized["discharge"][k],
                     "realized_delivered": realized["delivered"][k],
+                    "delivered_power_MW": realized["delivered"][k],
                     "realized_curtailment": realized["curtailment"][k],
+                    "curtailment_MW": realized["curtailment"][k],
+                    "output_shortfall_MW": np.nan,
                     "soc_start": realized["storage"][k],
+                    "SOC_start_MWh": realized["storage"][k],
                     "soc_end": realized["storage"][k + 1],
+                    "SOC_end_MWh": realized["storage"][k + 1],
                     "mode_binary_charge": realized["mode"][k],
+                    "hourly_revenue_USD": realized["delivered"][k] * raw_price[hour],
+                    "hourly_revenue_metric": realized["delivered"][k] * actual_price[hour],
+                    "year_end_soc_target_active_in_plan": bool(soc_targets),
                 }
             )
         current_soc = float(realized["storage"][-1])
@@ -481,15 +647,44 @@ def run_horizon(
     labels = pd.DataFrame(rows)
     power = labels["actual_generation"].to_numpy()
     price = labels["actual_price"].to_numpy()
+    raw_price_for_labels = labels["actual_RTM_USD_per_MWh"].to_numpy(dtype=float)
     delivered = labels["realized_delivered"].to_numpy()
-    baseload = continuous_baseload(power, config, initial_soc=initial_soc)
+    wind_only = wind_only_delivery(power, config)
+    constant_100mw = constant_output_100mw_delivery(
+        power,
+        config,
+        initial_soc=initial_soc,
+        min_soc_frac=min_soc_frac,
+        max_soc_frac=max_soc_frac,
+        target_mw=100.0,
+    )
+    legacy_non_strategic = continuous_baseload(
+        power,
+        primary_baseline_config,
+        initial_soc=primary_baseline_initial_soc,
+    )
     wind_cost, dispatch_cost = fixed_costs(config)
-    revenue = float(util.revenue(delivered, price))
-    baseload_revenue = float(util.revenue(baseload, price))
-    cove = cove_value(delivered, price, config)
-    baseload_cove = cove_value(baseload, price, config)
+    revenue = float(np.sum(delivered * price))
+    wind_only_revenue = float(np.sum(wind_only * price))
+    constant_100mw_revenue = float(np.sum(constant_100mw * price))
+    legacy_revenue = float(np.sum(legacy_non_strategic * price))
+    raw_revenue = float(np.sum(delivered * raw_price_for_labels))
+    wind_only_raw_revenue = float(np.sum(wind_only * raw_price_for_labels))
+    constant_100mw_raw_revenue = float(np.sum(constant_100mw * raw_price_for_labels))
+    legacy_raw_revenue = float(np.sum(legacy_non_strategic * raw_price_for_labels))
+    cove = cost_over_revenue(dispatch_cost, revenue)
+    wind_only_cove = cost_over_revenue(wind_cost, wind_only_revenue)
+    constant_100mw_cove = cost_over_revenue(dispatch_cost, constant_100mw_revenue)
+    legacy_cove = cove_value(legacy_non_strategic, price, primary_baseline_config)
+    raw_cove = cost_over_revenue(dispatch_cost, raw_revenue)
+    wind_only_raw_cove = cost_over_revenue(wind_cost, wind_only_raw_revenue)
+    constant_100mw_raw_cove = cost_over_revenue(dispatch_cost, constant_100mw_raw_revenue)
     constraints = check_realized_constraints(
         labels, config, min_soc_frac, max_soc_frac
+    )
+    annual_checks = annual_soc_qa(
+        labels,
+        annual_target_soc_mwh if perfect_information else None,
     )
     summary = {
         "method": "oracle"
@@ -507,17 +702,46 @@ def run_horizon(
         "test_start": str(labels["datetime"].iloc[0]),
         "test_end": str(labels["datetime"].iloc[-1]),
         "revenue_metric": revenue,
-        "baseload_revenue_metric": baseload_revenue,
+        "baseload_revenue_metric": wind_only_revenue,
+        "wind_only_revenue_metric": wind_only_revenue,
+        "constant_output_100mw_revenue_metric": constant_100mw_revenue,
+        "legacy_non_strategic_revenue_metric": legacy_revenue,
+        "raw_realized_revenue_usd": raw_revenue,
+        "baseload_raw_realized_revenue_usd": wind_only_raw_revenue,
+        "wind_only_raw_realized_revenue_usd": wind_only_raw_revenue,
+        "constant_output_100mw_raw_realized_revenue_usd": constant_100mw_raw_revenue,
+        "legacy_non_strategic_raw_realized_revenue_usd": legacy_raw_revenue,
         "cove": cove,
-        "baseload_cove": baseload_cove,
-        "improvement_vs_baseload_pct": (baseload_cove - cove)
-        / baseload_cove
+        "baseload_cove": wind_only_cove,
+        "wind_only_cove": wind_only_cove,
+        "constant_output_100mw_cove": constant_100mw_cove,
+        "legacy_non_strategic_cove": legacy_cove,
+        "raw_cove": raw_cove,
+        "wind_only_raw_cove": wind_only_raw_cove,
+        "constant_output_100mw_raw_cove": constant_100mw_raw_cove,
+        "improvement_vs_baseload_pct": (wind_only_cove - cove) / wind_only_cove * 100,
+        "cove_improvement_vs_wind_only_pct": (wind_only_cove - cove) / wind_only_cove * 100,
+        "cove_improvement_vs_100mw_baseload_pct": (constant_100mw_cove - cove)
+        / constant_100mw_cove
         * 100,
+        "cove_improvement_vs_legacy_non_strategic_pct": (legacy_cove - cove)
+        / legacy_cove
+        * 100,
+        "raw_revenue_gain_vs_wind_only_pct": (raw_revenue / wind_only_raw_revenue - 1.0) * 100,
+        "raw_revenue_gain_vs_100mw_baseload_pct": (raw_revenue / constant_100mw_raw_revenue - 1.0) * 100,
         "dispatch_cost": dispatch_cost,
+        "wind_only_cost": wind_cost,
         "profit_metric": revenue - dispatch_cost,
+        "primary_baseline_storage_duration_h": float(
+            primary_baseline_config["storage_duration"]
+        ),
         "final_soc": float(labels["soc_end"].iloc[-1]),
+        "execution_step_hours": int(execution_step_hours),
+        "replanning_interval_hours": int(replanning_interval_hours),
+        "terminal_policy": terminal_policy,
         "solver_runtime_seconds": solver_runtime,
         **constraints,
+        **annual_checks,
     }
     return labels, summary
 
@@ -553,7 +777,7 @@ def save_figures(
     width = 0.36
     axis.bar(
         x - width / 2,
-        forecast["improvement_vs_baseload_pct"],
+        forecast["cove_improvement_vs_100mw_baseload_pct"],
         width,
         label="Causal forecasts",
         color="#2563EB",
@@ -561,13 +785,13 @@ def save_figures(
     if not oracle.empty:
         axis.bar(
             x + width / 2,
-            oracle["improvement_vs_baseload_pct"],
+            oracle["cove_improvement_vs_100mw_baseload_pct"],
             width,
             label="Perfect future information",
             color="#CBD5E1",
         )
     axis.set_xticks(x, labels)
-    axis.set_ylabel("COVE improvement vs baseload (%)")
+    axis.set_ylabel("COVE gain vs 100 MW benchmark (%)")
     axis.set_title(
         "Realistic forecast dispatch versus perfect-information upper bound",
         fontweight="bold",
@@ -742,6 +966,40 @@ def main():
     parser.add_argument("--mip-gap", type=float, default=0.0)
     parser.add_argument("--storage-power-mw", type=float, default=100.0)
     parser.add_argument("--storage-duration-h", type=float, default=10.0)
+    parser.add_argument(
+        "--execution-step-hours",
+        type=int,
+        default=1,
+        help="How many hours are actually executed before replanning. Chris spec: 1.",
+    )
+    parser.add_argument(
+        "--replanning-interval-hours",
+        type=int,
+        default=1,
+        help="How many hours the controller advances between solves. Chris spec: 1.",
+    )
+    parser.add_argument(
+        "--annual-target-soc-mwh",
+        type=float,
+        default=None,
+        help="Optional oracle SoC target after each Dec. 31 23:00 hour. Omit for fully chronological carryover.",
+    )
+    parser.add_argument(
+        "--terminal-policy",
+        choices=["equal-initial", "no-empty", "none"],
+        default="equal-initial",
+        help="SoC condition at the end of each planning window.",
+    )
+    parser.add_argument(
+        "--primary-baseline-storage-duration-h",
+        type=float,
+        default=24.0,
+        help=(
+            "Storage duration used only for the legacy non-strategic "
+            "storage-baseload column. The main comparison is wind-only "
+            "no-storage; the 100 MW / 10 h benchmark is reported separately."
+        ),
+    )
     parser.add_argument("--grid-cap-mw", type=float, default=249.0)
     parser.add_argument(
         "--initial-soc",
@@ -785,6 +1043,8 @@ def main():
     args = parser.parse_args()
     if args.oracle_only and args.skip_oracle:
         raise ValueError("--oracle-only and --skip-oracle cannot both be used.")
+    if args.execution_step_hours < 1 or args.replanning_interval_hours < 1:
+        raise ValueError("Execution step and replanning interval must be at least one hour.")
 
     output_dir = Path(args.out_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -804,12 +1064,22 @@ def main():
             "rated_capacity": args.grid_cap_mw,
         }
     )
+    primary_baseline_config = dict(config)
+    primary_baseline_config["storage_duration"] = args.primary_baseline_storage_duration_h
     storage_capacity = float(config["storage_rating"] * config["storage_duration"] * config["num_modules"])
     initial_soc = (
         float(args.initial_soc)
         if args.initial_soc is not None
         else storage_capacity * (args.min_soc_frac + args.max_soc_frac) / 2.0
     )
+    primary_baseline_capacity = float(
+        primary_baseline_config["storage_rating"]
+        * primary_baseline_config["storage_duration"]
+        * primary_baseline_config["num_modules"]
+    )
+    primary_baseline_initial_soc = primary_baseline_capacity * (
+        args.min_soc_frac + args.max_soc_frac
+    ) / 2.0
 
     if "lmp" in df.columns:
         raw_rtm_price = df["lmp"].to_numpy(dtype=float)
@@ -817,6 +1087,7 @@ def main():
         raw_rtm_price = df["rtm_lmp_pyron_usd_per_mwh"].to_numpy(dtype=float)
     else:
         raise ValueError("Input data must contain either 'lmp' or 'rtm_lmp_pyron_usd_per_mwh'.")
+    df["raw_RTM_USD_per_MWh"] = raw_rtm_price
 
     capped_price = np.minimum(raw_rtm_price, float(config["price_threshold"]))
     train_end = int(
@@ -833,8 +1104,12 @@ def main():
 
     if train_end <= max(PAST_LAGS) + max_horizon:
         raise ValueError("Training period is too short.")
-    origins = np.arange(train_end, len(df), 24)
+    origins = np.arange(train_end, len(df), args.replanning_interval_hours)
+    # Keep every tested horizon on the same evaluation hours. Without this,
+    # the final partial week changes the horizon ranking.
     origins = origins[origins + max_horizon <= len(df)]
+    if len(origins) == 0:
+        raise ValueError("No test origins have a complete planning horizon.")
 
     print(
         f"Training forecasts on {df['datetime'].iloc[0]} through "
@@ -842,9 +1117,9 @@ def main():
         flush=True,
     )
     print(
-        f"Backtesting {len(origins)} daily origins from "
+        f"Backtesting {len(origins)} hourly rolling origins from "
         f"{df['datetime'].iloc[origins[0]]} through "
-        f"{df['datetime'].iloc[origins[-1] + max_horizon - 1]}",
+        f"{df['datetime'].iloc[origins[-1]]}",
         flush=True,
     )
 
@@ -913,12 +1188,18 @@ def main():
                 price_forecasts,
                 horizon,
                 config,
+                primary_baseline_config,
                 initial_soc,
+                primary_baseline_initial_soc,
                 args.min_soc_frac,
                 args.max_soc_frac,
                 args.mip_gap,
                 perfect_information=False,
                 direct_reserve_mw=args.direct_reserve_mw,
+                execution_step_hours=args.execution_step_hours,
+                replanning_interval_hours=args.replanning_interval_hours,
+                terminal_policy=args.terminal_policy,
+                annual_target_soc_mwh=args.annual_target_soc_mwh,
             )
             labels.to_csv(
                 output_dir / f"forecast_dispatch_{horizon}h.csv", index=False
@@ -936,12 +1217,18 @@ def main():
                 price_forecasts,
                 horizon,
                 config,
+                primary_baseline_config,
                 initial_soc,
+                primary_baseline_initial_soc,
                 args.min_soc_frac,
                 args.max_soc_frac,
                 args.mip_gap,
                 perfect_information=True,
                 direct_reserve_mw=0.0,
+                execution_step_hours=args.execution_step_hours,
+                replanning_interval_hours=args.replanning_interval_hours,
+                terminal_policy=args.terminal_policy,
+                annual_target_soc_mwh=args.annual_target_soc_mwh,
             )
             labels.to_csv(
                 output_dir / f"oracle_dispatch_{horizon}h.csv", index=False
@@ -965,7 +1252,7 @@ def main():
         ],
         "backtest_period": [
             str(df["datetime"].iloc[origins[0]]),
-            str(df["datetime"].iloc[origins[-1] + max_horizon - 1]),
+            str(df["datetime"].iloc[origins[-1]]),
         ],
         "storage": {
             "type": "caes",
@@ -977,9 +1264,17 @@ def main():
             "max_soc_mwh": storage_capacity * args.max_soc_frac,
             "initial_soc_mwh": initial_soc,
             "grid_limit_mw": float(config["rated_capacity"]),
+            "annual_target_soc_mwh_for_oracle": (
+                None
+                if args.annual_target_soc_mwh is None
+                else float(args.annual_target_soc_mwh)
+            ),
         },
+        "execution_step_hours": int(args.execution_step_hours),
+        "replanning_interval_hours": int(args.replanning_interval_hours),
+        "ordinary_window_terminal_policy": args.terminal_policy,
         "price_signal_for_planning": args.price_signal,
-        "realized_price_for_scoring": "RTM Pyron LMP normalized by the training-period mean after the existing threshold cap",
+        "realized_price_for_scoring": "summary keeps normalized revenue_metric for old COVE comparability; hourly CSV also reports raw realized RTM LMP and hourly revenue in USD",
         "maximum_constraint_violation": maximum_violation,
         "tested_horizons": horizons,
         "best_forecast_horizon": (
@@ -1001,8 +1296,11 @@ def main():
                 "method",
                 "horizon_hours",
                 "cove",
-                "improvement_vs_baseload_pct",
+                "cove_improvement_vs_wind_only_pct",
+                "cove_improvement_vs_100mw_baseload_pct",
                 "revenue_metric",
+                "wind_only_revenue_metric",
+                "constant_output_100mw_revenue_metric",
                 "final_soc",
                 "solver_runtime_seconds",
             ]

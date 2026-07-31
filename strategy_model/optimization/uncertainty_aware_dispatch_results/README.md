@@ -1,48 +1,52 @@
-# Uncertainty-Aware Dispatch Results
+# Legacy Uncertainty-Aware Dispatch Results
 
-This folder contains the scenario-based dispatch experiment.
+This folder contains older scenario-dispatch outputs from earlier research
+iterations. Keep the files for history, but do **not** use this folder as the
+current paper-facing result source.
 
-## What Changed
+The current reproducible scenario package is here:
 
-Instead of giving Gurobi one predicted future, the best version gives it several possible 24-hour wind and price futures. Gurobi chooses a first-hour storage action that works well across those futures.
+```text
+Summer 2026 REU/different scenarios/
+```
 
-Then only the first hour is executed, the real battery state is carried forward, and the process repeats chronologically.
+## Current Paper-Facing Scenario Result
 
-## Constraints Used
+Primary benchmark: **100-MW Constant-Output Baseload Benchmark**.
+Wind-only is secondary reference only.
 
-The run uses the Nora/Chris CAES setup:
+| Method | Revenue | Revenue gain vs 100 MW | COVE | COVE gain vs 100 MW |
+| --- | ---: | ---: | ---: | ---: |
+| 1 forecast | $337,322,348.04 | 59.31% | 0.173884 | 37.23% |
+| 3 scenarios | $353,949,333.45 | 67.16% | 0.165716 | 40.18% |
+| 5 scenarios | $353,117,910.43 | 66.77% | 0.166106 | 40.04% |
+| 7 scenarios | $353,220,656.50 | 66.82% | 0.166058 | 40.05% |
+| 10 scenarios | $341,858,797.71 | 61.45% | 0.171577 | 38.06% |
+
+Current best scenario case: **3 scenarios**, with **40.18% COVE gain** and
+**67.16% revenue gain** versus the 100 MW benchmark.
+
+## Current Command
+
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scenarios"
+../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
+```
+
+## Current Constraints
+
+The current Summer 2026 ladder uses one shared CAES-equivalent setup:
 
 | Item | Value |
 | --- | ---: |
-| Storage power | 100 MW |
-| Storage duration | 10 hours |
-| Max SoC | 1000 MWh |
-| Min SoC | 200 MWh |
+| Storage power | 100 MW charge / 100 MW discharge |
+| Storage duration | 10 h |
+| Capacity | 1,000 MWh |
+| SoC bounds | 200-1,000 MWh |
 | Initial SoC | 600 MWh |
-| RTE | 55% |
-| Grid export limit | 249 MW |
-| SoC indexing | N+1 |
-| Chronological carryover | Yes |
+| RTE | 55%, discharge-side |
+| Grid export cap | 249 MW |
+| Grid charging | Not allowed |
 
-It also enforces no simultaneous charge/discharge, wind-only charging, delivered-power balance, and grid export limits.
-
-## Final Result Table
-
-| Method | Revenue | Gain vs baseload | COVE reduction |
-| --- | ---: | ---: | ---: |
-| Single forecast closed-loop gated | $209.948M | 16.22% | 13.95% |
-| Three-scenario closed-loop gated | $210.298M | 16.41% | 14.10% |
-| Five-scenario closed-loop gated | $211.597M | 17.13% | 14.62% |
-| Seven-scenario closed-loop gated | $212.098M | 17.41% | 14.83% |
-| Ten-scenario closed-loop gated | $205.264M | 13.62% | 11.99% |
-
-## Figures
-
-- [Revenue breakthrough](final_figure_01_revenue_breakthrough.png)
-- [COVE breakthrough](final_figure_02_cove_breakthrough.png)
-- [Example week dispatch](final_figure_03_example_week_dispatch.png)
-- [Uncertainty pipeline](final_figure_04_uncertainty_pipeline.png)
-
-## Key Takeaway
-
-The seven-scenario controller was best in this test. Adding more scenarios did not automatically help: the ten-scenario case became too conservative.
+For current figures, hourly CSVs, and README instructions, use the `Summer 2026
+REU` folder rather than this legacy folder.

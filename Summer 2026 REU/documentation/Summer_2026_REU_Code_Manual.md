@@ -122,7 +122,7 @@ Code flow:
 - Runs canonical_benchmark_oracle_runner.py as a subprocess.
 - Reads the summary and QA CSVs that were just produced.
 - Prints baseload, oracle, and B6 comparison tables.
-- Draws figures for example week, oracle vs baseload, and B6 vs baseload.
+- Draws figures for example week, oracle vs the 100 MW benchmark, and B6 vs the 100 MW benchmark.
 
 | Constant / knob | Value or expression |
 | --- | --- |
@@ -672,7 +672,7 @@ Important imports: `__future__:annotations, dataclasses:dataclass`
 | Writes | Hourly labels, summary metrics, constraint checks, and optional progress files. |
 | Line count | 496 |
 
-Top docstring: Rolling-horizon Gurobi dispatch with Nora's MILP constraints. This experiment uses Gurobi as the mixed-integer teacher for COVE-DV. Summary: - At each time step, Gurobi looks ahead a fixed number of hours. - It chooses charge, discharge, hold, direct-to-grid, delivered power, and storage. - Only the first part of that plan is executed. - Then the battery state carries forward chronologically and the window rolls. The default model includes Nora's operational constraints: - storage capacity limits, - charging/discharging power limits, - one binary charge/discharge mode per hour, - available-energy discharge limit, - wind-only charging, - delivered power definition, - grid export limit, - storage state update, - end-of-horizon SoC_initial = SoC_final.
+Top docstring: Rolling-horizon Gurobi dispatch with Nora's MILP constraints. This experiment uses Gurobi as the rolling-horizon dispatch optimizer. Summary: - At each time step, Gurobi looks ahead a fixed number of hours. - It chooses charge, discharge, hold, direct-to-grid, delivered power, and storage. - Only the first part of that plan is executed. - Then the battery state carries forward chronologically and the window rolls. The default model includes Nora's operational constraints: - storage capacity limits, - charging/discharging power limits, - one binary charge/discharge mode per hour, - available-energy discharge limit, - wind-only charging, - delivered power definition, - grid export limit, - storage state update, - end-of-horizon SoC_initial = SoC_final.
 
 Code flow:
 
@@ -1394,7 +1394,7 @@ Important imports: `torch, torch.nn, torch.nn.functional, util, numpy`
 | Writes | Hourly labels, summary metrics, constraint checks, and optional progress files. |
 | Line count | 496 |
 
-Top docstring: Rolling-horizon Gurobi dispatch with Nora's MILP constraints. This experiment uses Gurobi as the mixed-integer teacher for COVE-DV. Summary: - At each time step, Gurobi looks ahead a fixed number of hours. - It chooses charge, discharge, hold, direct-to-grid, delivered power, and storage. - Only the first part of that plan is executed. - Then the battery state carries forward chronologically and the window rolls. The default model includes Nora's operational constraints: - storage capacity limits, - charging/discharging power limits, - one binary charge/discharge mode per hour, - available-energy discharge limit, - wind-only charging, - delivered power definition, - grid export limit, - storage state update, - end-of-horizon SoC_initial = SoC_final.
+Top docstring: Rolling-horizon Gurobi dispatch with Nora's MILP constraints. This experiment uses Gurobi as the rolling-horizon dispatch optimizer. Summary: - At each time step, Gurobi looks ahead a fixed number of hours. - It chooses charge, discharge, hold, direct-to-grid, delivered power, and storage. - Only the first part of that plan is executed. - Then the battery state carries forward chronologically and the window rolls. The default model includes Nora's operational constraints: - storage capacity limits, - charging/discharging power limits, - one binary charge/discharge mode per hour, - available-energy discharge limit, - wind-only charging, - delivered power definition, - grid export limit, - storage state update, - end-of-horizon SoC_initial = SoC_final.
 
 Code flow:
 

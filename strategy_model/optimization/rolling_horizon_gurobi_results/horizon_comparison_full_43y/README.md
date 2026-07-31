@@ -1,27 +1,31 @@
-# Full Historical Horizon Comparison
+# Legacy Full Historical Horizon Comparison
 
-This folder compares perfect-information Gurobi rolling-horizon windows.
+This folder contains an older perfect-information horizon comparison. It is
+kept as historical output only.
 
-Perfect-information means Gurobi is allowed to see the actual future values inside the lookahead window. This is useful as an upper-bound benchmark, not as a real deployed forecast controller.
+The current oracle package is here:
 
-## Result Table
+```text
+Summer 2026 REU/oracle upper bound/
+```
 
-| Horizon | COVE | Baseload COVE | COVE reduction | Runtime |
-| ---: | ---: | ---: | ---: | ---: |
-| 24 h | 1.247991 | 1.743062 | 28.40% | 16.81 s |
-| 48 h | 1.203263 | 1.743062 | 30.97% | 29.23 s |
-| 72 h | 1.186326 | 1.743062 | 31.94% | 45.19 s |
-| 168 h | 1.179495 | 1.743062 | 32.33% | 102.59 s |
+## Current Paper-Facing Oracle Result
 
-## Figures
+Primary benchmark: **100-MW Constant-Output Baseload Benchmark**.
+Wind-only is secondary reference only.
 
-- [COVE by horizon](figure_01_cove_by_horizon.png)
-- [Improvement by horizon](figure_02_improvement_by_horizon.png)
-- [Value metric by horizon](figure_03_value_metric_by_horizon.png)
-- [Runtime by horizon](figure_04_runtime_by_horizon.png)
-- [Example week SoC](figure_05_example_week_soc.png)
-- [Example week dispatch](figure_06_example_week_dispatch.png)
+| Oracle view | Best horizon | COVE | COVE gain vs 100 MW | Revenue metric |
+| --- | ---: | ---: | ---: | ---: |
+| Daily replan | 168 h | 5.082358 | 40.87% | 10,116,705.90 |
+| Hourly replan ceiling | 168 h | 5.076786 | 40.85% | 10,127,810.67 |
 
-## Key Takeaway
+The oracle is not deployable because it sees actual future wind and actual
+future price. It is used only as an upper-bound reference for the realistic
+forecast and scenario controllers.
 
-A longer lookahead helps when future values are known. The 168-hour horizon is best in this perfect-information test, but 48-72 hours captures most of the improvement.
+## Current Command
+
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
+../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
+```

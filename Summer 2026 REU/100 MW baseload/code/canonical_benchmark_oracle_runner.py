@@ -214,6 +214,7 @@ def run_constant_output_baseload(df: pd.DataFrame, config: StorageConfig) -> pd.
         soc = soc_start + charge - discharge / config.rte
         rows.append(
             {
+                "timestamp_UTC": row["timestamp"],
                 "timestamp": row["timestamp"],
                 "actual_wind_MW": wind,
                 "target_output_MW": config.target_output_mw,
@@ -225,7 +226,9 @@ def run_constant_output_baseload(df: pd.DataFrame, config: StorageConfig) -> pd.
                 "output_shortfall_MW": shortfall,
                 "SOC_start_MWh": soc_start,
                 "SOC_end_MWh": soc,
+                "actual_RTM_USD_per_MWh": price,
                 "RTM_price_per_MWh": price,
+                "hourly_revenue_USD": delivered * price,
                 "hourly_revenue": delivered * price,
                 "case_uses_future_actual_data": False,
                 "planning_horizon_hours": 0,
@@ -347,6 +350,7 @@ def run_oracle_rolling_horizon(
         rows.append(
             {
                 "timestamp": timestamps[t],
+                "timestamp_UTC": timestamps[t],
                 "actual_wind_MW": generation[t],
                 "target_output_MW": np.nan,
                 "direct_wind_MW": direct,
@@ -357,7 +361,9 @@ def run_oracle_rolling_horizon(
                 "output_shortfall_MW": np.nan,
                 "SOC_start_MWh": soc_start,
                 "SOC_end_MWh": soc_end,
+                "actual_RTM_USD_per_MWh": price[t],
                 "RTM_price_per_MWh": price[t],
+                "hourly_revenue_USD": delivered * price[t],
                 "hourly_revenue": delivered * price[t],
                 "case_uses_future_actual_data": True,
                 "planning_horizon_hours": planning_horizon_hours,
@@ -495,6 +501,8 @@ def summarize_case(
 
 def write_hourly(labels: pd.DataFrame, path: Path) -> None:
     out = labels.copy()
+    if "timestamp_UTC" in out.columns:
+        out["timestamp_UTC"] = pd.to_datetime(out["timestamp_UTC"]).dt.strftime("%Y-%m-%d %H:%M:%S")
     out["timestamp"] = pd.to_datetime(out["timestamp"]).dt.strftime("%Y-%m-%d %H:%M:%S")
     out.to_csv(path, index=False)
 

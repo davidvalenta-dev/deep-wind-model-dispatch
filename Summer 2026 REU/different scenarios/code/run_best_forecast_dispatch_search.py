@@ -75,6 +75,13 @@ def cove_reduction_from_revenues(dispatch_revenue: float, baseload_revenue: floa
     return (1.0 - baseload_revenue / dispatch_revenue) * 100.0
 
 
+def annualized_wind_only_cost() -> float:
+    wind_cost = ((base.WF_CAPEX * base.GRID_CAP * 1000.0) * base.FCR) + (
+        base.WF_OPEX * base.GRID_CAP * 1000.0
+    )
+    return float(wind_cost)
+
+
 def candidate_summary(
     labels: pd.DataFrame,
     candidate: str,
@@ -93,6 +100,8 @@ def candidate_summary(
     wind_only_revenue = base.revenue(wind_only, actual_price)
     dispatch_revenue = base.revenue(delivered, actual_price)
     cost = base.annualized_dispatch_cost()
+    wind_only_cost = annualized_wind_only_cost()
+    wind_only_cove = wind_only_cost / wind_only_revenue
 
     row: dict[str, float | str | int | bool] = {
         "candidate": candidate,
@@ -107,8 +116,13 @@ def candidate_summary(
         "baseload_revenue": baseload_revenue,
         "dispatch_revenue": dispatch_revenue,
         "dispatch_cove_index": cost / dispatch_revenue,
+        "wind_only_cove_index": wind_only_cove,
         "baseload_cove_index": cost / baseload_revenue,
+        "revenue_gain_vs_wind_only_pct": (dispatch_revenue / wind_only_revenue - 1.0) * 100.0,
         "revenue_gain_vs_baseload_pct": (dispatch_revenue / baseload_revenue - 1.0) * 100.0,
+        "cove_reduction_vs_wind_only_pct": (wind_only_cove - (cost / dispatch_revenue))
+        / wind_only_cove
+        * 100.0,
         "cove_reduction_vs_baseload_pct": cove_reduction_from_revenues(dispatch_revenue, baseload_revenue),
         "final_soc": float(labels["soc_end_mwh"].iloc[-1]),
         "min_soc": float(min(labels["soc_start_mwh"].min(), labels["soc_end_mwh"].min())),

@@ -1,0 +1,3 @@
+Poster created from local repo figures and result CSVs.
+Poster instruction PDF required 20 x 30 inch PowerPoint page with 0.75 to 1 inch margins.
+Key results: Step 1 RMSE 21.24 MW; Step 2 48h deterministic COVE gain 20.63%; Step 3 hourly 3-scenario COVE gain 40.18%; Step 4 oracle 168h COVE gain 40.87%.

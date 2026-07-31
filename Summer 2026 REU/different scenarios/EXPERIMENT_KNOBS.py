@@ -11,8 +11,18 @@ HERE = Path(__file__).resolve().parent
 # Where the full scenario rerun writes summaries and hourly CSVs.
 OUTPUT_DIR = HERE / "results" / "current_run_from_knobs"
 
-# Scenario/rolling-horizon knobs. Change HORIZON_HOURS to test 35, 72, etc.
+# False means the RUN script prints the saved current 100 MW / 10-hour CAES results
+# already saved in OUTPUT_DIR. Set True only if you intentionally want to rerun Gurobi.
+RERUN_FROM_SOURCE = True
+
+# Scenario/rolling-horizon knobs for the archived scenario paper result.
+# This version uses hourly replanning: each 48-hour problem is solved, only
+# the first hour is executed, then the controller replans with a fresh nowcast.
 HORIZON_HOURS = 48
+FORECAST_MODEL_MAX_HORIZON_HOURS = 48
+EVALUATION_CUTOFF_HORIZON_HOURS = 48
+EXECUTION_STEP_HOURS = 1
+REPLANNING_INTERVAL_HOURS = 1
 VARIANTS = [
     "single_recourse",
     "three_scenario_expected",
@@ -31,7 +41,13 @@ INITIAL_SOC_MWH = None
 
 # Forecast/scenario construction knobs.
 NOWCAST_FIRST_HOUR = True
+# Safety gate is on for the archived hourly-replan scenario result.
 GATE_MARGIN = 0.0
+APPLY_GATE_TO_SINGLE_FORECAST = False
+FALLBACK_TARGET_MW = 85.67800432903339
+DIRECT_RESERVE_MW = 75.0
+TRAIN_ORIGIN_STRIDE = 24
+RESIDUAL_ORIGIN_STRIDE = 1
 CALIBRATION_MODE = "in_sample_residual"
 FORECAST_TRAIN_END = "2013-01-01"
 CALIBRATION_END = "2014-01-01"

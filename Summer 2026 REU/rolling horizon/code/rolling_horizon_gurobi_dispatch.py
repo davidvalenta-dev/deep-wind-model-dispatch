@@ -1,6 +1,6 @@
 """Rolling-horizon Gurobi dispatch with Nora's MILP constraints.
 
-This experiment uses Gurobi as the mixed-integer teacher for COVE-DV.
+This experiment uses Gurobi as the rolling-horizon dispatch optimizer.
 
 Summary:
 - At each time step, Gurobi looks ahead a fixed number of hours.
@@ -17,7 +17,7 @@ The default model includes Nora's operational constraints:
 - delivered power definition,
 - grid export limit,
 - storage state update,
-- end-of-horizon SoC_initial = SoC_final.
+- optional SoC targets when a specific benchmark requires them.
 """
 
 from __future__ import annotations
@@ -108,6 +108,7 @@ def solve_window(
     max_soc_frac: float,
     mip_gap: float,
     time_limit: float | None,
+    soc_targets: dict[int, float] | None = None,
 ) -> dict[str, np.ndarray | float | int | str]:
     import gurobipy as gp
     from gurobipy import GRB
@@ -142,6 +143,14 @@ def solve_window(
         model.addConstr(soc[hours] >= start_soc, name="SoC_final_at_least_initial")
     elif terminal_policy != "none":
         raise ValueError(f"Unknown terminal policy: {terminal_policy}")
+    if soc_targets:
+        for soc_index, target_soc in soc_targets.items():
+            if soc_index < 0 or soc_index > hours:
+                raise ValueError(f"SoC target index {soc_index} is outside 0..{hours}")
+            model.addConstr(
+                soc[soc_index] == float(target_soc),
+                name=f"SoC_target_{soc_index}",
+            )
 
     for t in range(hours):
         # Wind-only charging: direct wind plus charging cannot exceed generated wind.
@@ -484,7 +493,10 @@ def main() -> None:
     print(f"Hours evaluated: {int(summary['hours'])}")
     print(f"Baseload COVE: {summary['baseload_cove']:.6f}")
     print(f"Gurobi COVE: {summary['gurobi_cove']:.6f}")
-    print(f"Improvement vs baseload: {summary['gurobi_improvement_vs_baseload_pct']:.2f}%")
+    print(
+        "Legacy internal storage-baseline improvement: "
+        f"{summary['gurobi_improvement_vs_baseload_pct']:.2f}%"
+    )
     print(f"Difference vs paper COVE-NN 32.3%: {summary['gurobi_minus_paper_cove_nn_pct_points']:.2f} percentage points")
     max_violation = max(float(summary[k]) for k in summary if k.startswith("max_") and k.endswith("_violation"))
     print(f"Constraint max violation: {max_violation:.3e}")

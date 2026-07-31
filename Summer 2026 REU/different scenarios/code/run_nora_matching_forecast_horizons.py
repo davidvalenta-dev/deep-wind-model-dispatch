@@ -38,7 +38,7 @@ SOC0 = (CMIN + CMAX) / 2.0
 GRID_CAP = 249.0
 
 # Annualized cost constants copied from strategy_model/src/util.py plus the
-# CAES 100 MW, 10 h cost setting used in the previous COVE-DV decks.
+# CAES 100 MW, 10 h cost setting used by the current Summer 2026 storage setup.
 FCR = 0.065
 WF_CAPEX = 1968.0
 WF_OPEX = 43.0
@@ -519,7 +519,7 @@ def make_figures(
     bars[best_index].set_color("#16a34a")
     for bar, value in zip(bars, ordered["cove_reduction_vs_baseload_pct"]):
         ax.text(bar.get_x() + bar.get_width() / 2, value, f"{value:.2f}%", ha="center", va="bottom", fontweight="bold")
-    ax.set_ylabel("COVE reduction vs baseload (%)")
+    ax.set_ylabel("COVE reduction vs internal storage-baseload (%)")
     ax.set_title("Realistic forecast dispatch: 24h freeze, chronological SoC")
     fig.tight_layout()
     fig.savefig(OUT / "figure_01_forecast_cove_reduction_by_horizon.png", facecolor="white", bbox_inches="tight")
@@ -639,7 +639,7 @@ def make_figures(
         ax.plot(selected["year"], selected["cove_reduction_vs_baseload_pct"], marker="o", label=f"{horizon}h", color=color)
     ax.axhline(0, color="#111827", linewidth=0.8)
     ax.set_xlabel("Year")
-    ax.set_ylabel("COVE reduction vs baseload (%)")
+    ax.set_ylabel("COVE reduction vs internal storage-baseload (%)")
     ax.set_title("Year-by-year realized performance")
     ax.legend(frameon=False, ncol=4)
     fig.tight_layout()

@@ -177,8 +177,8 @@ def save_example_week_figures(example: pd.DataFrame, output_dir: Path):
             color=palette[horizon],
             linewidth=1.8,
         )
-    axis.axhline(480, color="#64748B", linestyle="--", linewidth=1, label="Minimum SoC")
-    axis.axhline(2400, color="#64748B", linestyle=":", linewidth=1, label="Maximum SoC")
+    axis.axhline(200, color="#64748B", linestyle="--", linewidth=1, label="Minimum SoC")
+    axis.axhline(1000, color="#64748B", linestyle=":", linewidth=1, label="Maximum SoC")
     axis.set_ylabel("State of charge (MWh)")
     axis.set_title("Example week: longer horizons preserve energy for later opportunities", fontweight="bold")
     axis.legend(frameon=False, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.13))
@@ -290,7 +290,7 @@ Fixed setup
 - Power rating: 100 MW
 - Duration/capacity: 24 h / 2,400 MWh
 - Round-trip efficiency: 55%
-- Minimum SoC: 480 MWh
+- Minimum SoC: 200 MWh
 - Maximum SoC: 2,400 MWh
 - Initial SoC: 1,440 MWh
 - Grid export limit: 249 MW

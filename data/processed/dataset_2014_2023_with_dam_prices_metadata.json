@@ -1,0 +1,26 @@
+{
+  "purpose": "Future DAM-informed dispatch experiment dataset.",
+  "project_input": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/dataset_1980-2023_withloads_fix.csv",
+  "project_input_columns_used": [
+    "datetime",
+    "power_generated",
+    "lmp",
+    "user_load_zonal"
+  ],
+  "dam_source": "ERCOT DAM Settlement Point Prices, accessed with gridstatus.Ercot.get_dam_spp(year)",
+  "dam_locations_available_and_used": [
+    "LZ_WEST",
+    "HB_WEST"
+  ],
+  "dam_pyron_node_status": "PYR_PYRON1 was checked and was not present in the annual public DAM SPP files pulled by gridstatus.",
+  "dam_gap_handling": "The existing project dataset has continuous local timestamps. ERCOT DAM local timestamps skip the spring daylight-saving 02:00 hour. Those 10 hourly DAM gaps were linearly interpolated and flagged in *_was_interpolated columns.",
+  "merged_output_definition": "Existing Pyron-style project rows with RTM PYR_PYRON1 LMP plus DAM West hub/load-zone SPP columns.",
+  "intended_experiment": "Plan dispatch with forecast wind and DAM price columns, then score realized revenue with RTM PYR_PYRON1 LMP.",
+  "years": [
+    2011,
+    2023
+  ],
+  "rows": 87584,
+  "first_datetime": "2014-01-01 00:00:00",
+  "last_datetime": "2023-12-30 04:00:00"
+}

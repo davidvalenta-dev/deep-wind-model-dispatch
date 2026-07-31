@@ -1,0 +1,48 @@
+{
+  "repository": "/Users/davidvalenta/deep-wind-model-dispatch",
+  "repository_remote": "https://github.com/davidvalenta-dev/deep-wind-model-dispatch.git",
+  "code_commit": "e184740da217ed811496c056aace5b7a61f6f860",
+  "git_status_short": "M \"Summer 2026 REU/100 MW baseload/EXPERIMENT_KNOBS.py\"\n M \"Summer 2026 REU/100 MW baseload/code/canonical_benchmark_oracle_runner.py\"\n M \"Summer 2026 REU/PAPER_RESULT_FILE_MAP.md\"\n M \"Summer 2026 REU/README.md\"\n M \"Summer 2026 REU/RUN_COMMANDS.md\"\n M \"Summer 2026 REU/different scenarios/EXPERIMENT_KNOBS.py\"\n M \"Summer 2026 REU/different scenarios/README.md\"\n M \"Summer 2026 REU/different scenarios/RUN_3_SCENARIO_COMPARISON.py\"\n M \"Summer 2026 REU/different scenarios/code/run_best_forecast_dispatch_search.py\"\n M \"Summer 2026 REU/different scenarios/code/run_nora_matching_forecast_horizons.py\"\n M \"Summer 2026 REU/different scenarios/code/run_uncertainty_aware_dispatch.py\"\n M \"Summer 2026 REU/different scenarios/figures/step3_3d_scenario_revenue_cove.png\"\n M \"Summer 2026 REU/different scenarios/figures/step3_ladder_revenue_progression.png\"\n M \"Summer 2026 REU/different scenarios/figures/step3_revenue_cove_tradeoff.png\"\n M \"Summer 2026 REU/different scenarios/figures/step3_scenario_cove_improvement.png\"\n M \"Summer 2026 REU/different scenarios/figures/step3_scenario_revenue_gain.png\"\n M \"Summer 2026 REU/oracle upper bound/EXPERIMENT_KNOBS.py\"\n M \"Summer 2026 REU/oracle upper bound/README.md\"\n M \"Summer 2026 REU/oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py\"\n M \"Summer 2026 REU/oracle upper bound/code/forecast_backtest_rolling_horizons.py\"\n M \"Summer 2026 REU/oracle upper bound/code/rolling_horizon_gurobi_dispatch.py\"\n M \"Summer 2026 REU/oracle upper bound/figures/step4_3d_oracle_revenue_cove.png\"\n M \"Summer 2026 REU/oracle upper bound/figures/step4_oracle_cove_by_horizon.png\"\n M \"Summer 2026 REU/oracle upper bound/figures/step4_oracle_improvement_by_horizon.png\"\n M \"Summer 2026 REU/oracle upper bound/figures/step4_oracle_runtime_value_tradeoff.png\"\n M \"Summer 2026 REU/oracle upper bound/results/oracle_upper_bound_summary.csv\"\n M \"Summer 2026 REU/rolling horizon/EXPERIMENT_KNOBS.py\"\n M \"Summer 2026 REU/rolling horizon/README.md\"\n M \"Summer 2026 REU/rolling horizon/RUN_2_ROLLING_HORIZON.py\"\n M \"Summer 2026 REU/rolling horizon/code/forecast_backtest_rolling_horizons.py\"\n M \"Summer 2026 REU/rolling horizon/code/rolling_horizon_gurobi_dispatch.py\"\n M \"Summer 2026 REU/rolling horizon/code/run_nora_matching_forecast_horizons.py\"\n M \"Summer 2026 REU/rolling horizon/figures/step2_3d_horizon_revenue_cove.png\"\n M \"Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_cove.png\"\n M \"Summer 2026 REU/rolling horizon/figures/step2_causal_horizon_improvement.png\"\n M \"Summer 2026 REU/rolling horizon/figures/step2_revenue_by_horizon.png\"\n M \"Summer 2026 REU/rolling horizon/figures/step2_runtime_value_tradeoff.png\"\n M \"Summer 2026 REU/rolling horizon/results/causal_ridge_rolling_horizon_summary.csv\"\n M data/README.md\n M requirements.txt\n M strategy_model/optimization/forecast_backtest_rolling_horizons.py\n M strategy_model/optimization/rolling_horizon_gurobi_results/forecast_backtest_2014_2023/forecast_dispatch_summary.csv\n?? \"Summer 2026 REU/CURRENT_RERUN_LADDER_SUMMARY_2026_07_27.csv\"\n?? \"Summer 2026 REU/CURRENT_RERUN_RESULTS_2026_07_27.md\"\n?? \"Summer 2026 REU/different scenarios/figures/step3_two_baseline_comparison.png\"\n?? \"Summer 2026 REU/documentation/Summer_2026_REU_Code_Cheat_Sheet_for_Chris.docx\"\n?? \"Summer 2026 REU/documentation/Summer_2026_REU_Code_Cheat_Sheet_for_Chris.md\"\n?? \"Summer 2026 REU/documentation/rendered_code_cheat_sheet/\"\n?? \"Summer 2026 REU/oracle upper bound/figures/step4_two_baseline_comparison.png\"\n?? \"Summer 2026 REU/oracle upper bound/results/archive_stale_outputs_not_current_ladder/\"\n?? \"Summer 2026 REU/oracle upper bound/results/smoke_year_end_soc/\"\n?? \"Summer 2026 REU/rolling horizon/figures/step2_two_baseline_comparison.png\"\n?? \"Summer 2026 REU/rolling horizon/results/archive_stale_outputs_not_current_ladder/\"\n?? \"Summer 2026 REU/rolling horizon/results/smoke_hourly_execution/\"\n?? data/build_dam_price_dataset.py\n?? data/processed/DAM_DATASET_README.md\n?? data/processed/dataset_1980_2023_with_dam_prices_for_forecast.csv\n?? data/processed/dataset_2014_2023_with_dam_prices.csv\n?? data/processed/dataset_2014_2023_with_dam_prices_QA.csv\n?? data/processed/dataset_2014_2023_with_dam_prices_metadata.json\n?? data/raw/dam_spp/\n?? experiments/\n?? outputs/\n?? strategy_model/optimization/canonical_benchmark_oracle_runner.py\n?? strategy_model/optimization/canonical_benchmarks_2020/\n?? strategy_model/optimization/rolling_horizon_gurobi_results/best_causal_ridge_rtm_reserve75/\n?? strategy_model/optimization/rolling_horizon_gurobi_results/dam_augmented_backtest_2014_2023_hb_reserve75/\n?? strategy_model/optimization/rolling_horizon_gurobi_results/dam_augmented_backtest_2014_2023_lz_reserve75/\n?? strategy_model/optimization/rolling_horizon_gurobi_results/dam_backtest_2014_2023_hb_reserve75/\n?? strategy_model/optimization/rolling_horizon_gurobi_results/dam_backtest_2014_2023_lz_reserve75/\n?? strategy_model/optimization/rolling_horizon_gurobi_results/dam_experiment_comparison.csv\n?? tmp_pdf_text.txt",
+  "gurobi_version": "13.0.2",
+  "python": "3.11.9 (v3.11.9:de54cf5be3, Apr  2 2024, 07:12:50) [Clang 13.0.0 (clang-1300.0.29.30)]",
+  "data_audit": {
+    "evaluation_period": "2020-01-01 00:00:00 to 2020-12-31 23:00:00",
+    "rows": 8784,
+    "power_input_file": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/pyron_power.csv",
+    "raw_rtm_lmp_input_file": "/Users/davidvalenta/deep-wind-model-dispatch/data/raw/prices/12cfb125-8fa9-4401-8b0f-9d928544b721.csv",
+    "older_combined_file_not_used": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/dataset_1980-2023_withloads_fix.csv",
+    "older_combined_2020_rows": 8783,
+    "older_combined_missing_hours": [
+      "2020-11-15 23:00:00"
+    ],
+    "alignment": "complete 2020 Pyron power and raw RTM LMP aligned by chronological row order onto a continuous 8784-hour 2020 index",
+    "price_units": "raw, uncapped, unnormalized USD/MWh",
+    "wind_units": "MW",
+    "first_timestamp": "2020-01-01 00:00:00",
+    "last_timestamp": "2020-12-31 23:00:00",
+    "missing_output_hours": [],
+    "duplicate_output_hours": 0,
+    "wind_min_mw": 0.0,
+    "wind_max_mw": 244.507,
+    "price_min_usd_per_mwh": -26.1575,
+    "price_max_usd_per_mwh": 835.449166666667
+  },
+  "storage_config": {
+    "storage_power_mw": 100.0,
+    "storage_duration_h": 10.0,
+    "rte": 0.55,
+    "min_soc_mwh": 200.0,
+    "max_soc_mwh": 1000.0,
+    "initial_soc_mwh": 600.0,
+    "year_end_soc_mwh": 600.0,
+    "grid_cap_mw": 249.0,
+    "target_output_mw": 100.0,
+    "wind_rating_mw": 249.0,
+    "fcr": 0.065,
+    "wind_capex_usd_per_kw": 1968.0,
+    "wind_opex_usd_per_kw_year": 43.0,
+    "caes_capex_usd_per_kw": 1125.33,
+    "caes_opex_usd_per_kw_year": 15.43
+  },
+  "scope": "Chris required actions v1.0: 100-MW constant-output baseload plus H-hour perfect-information oracle RH MILP for 24/48/168 h"
+}

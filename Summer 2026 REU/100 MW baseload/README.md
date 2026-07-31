@@ -93,12 +93,16 @@ against the same constant-output storage rule.
 From `results/constant_output_baseload_100mw_2014_2023_summary.csv`:
 
 ```text
-Period:                    2014-01-01 00:00:00 to 2023-12-30 04:00:00
-Hours:                     87,584
-Raw revenue:               $211,766,858.92
-Normalized revenue metric: 5,990,892.21
-Final SoC:                 200.00 MWh
+Period:                    2014-01-01 00:00:00 to 2023-12-23 20:00:00
+Hours:                     87,432
+Raw revenue:               $211,515,621.83
+Normalized revenue metric: 5,981,942.95
+Final SoC:                 980.22 MWh
 ```
+
+This period intentionally matches the active ladder outputs. The final partial
+week of 2023 is excluded because the 168-hour rolling-horizon cases need a
+complete future window for a fair comparison.
 
 The hourly file is:
 

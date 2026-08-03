@@ -26,7 +26,7 @@ Run one command in each folder:
 | 1 | `Summer 2026 REU/causal ridge regression` | Chooses the best power forecast by RMSE |
 | 2 | `Summer 2026 REU/rolling horizon` | Tests deterministic Gurobi planning horizons |
 | 3 | `Summer 2026 REU/different scenarios` | Tests 1/3/5/7/10 forecast scenarios |
-| 4 | `Summer 2026 REU/oracle upper bound` | Reports daily and hourly perfect-future oracle ceilings |
+| 4 | `Summer 2026 REU/oracle upper bound` | Reports daily and hourly perfect-information oracle references |
 
 Every folder has:
 
@@ -48,12 +48,24 @@ Change the knobs file, run the `RUN_*.py` command, then read
 | Best forecast model | causal lag/ridge forecast |
 | Best forecast RMSE | 21.24 MW |
 | Best deterministic rolling-horizon case | 48 h |
-| Deterministic COVE gain vs 100 MW benchmark | 20.63% |
+| Deterministic COVE reduction vs 100 MW benchmark | 20.63% |
 | Best scenario case | 3 scenarios |
-| Scenario COVE gain vs 100 MW benchmark | 40.18% |
+| Scenario COVE reduction vs 100 MW benchmark | 40.18% |
 | Scenario revenue gain vs 100 MW benchmark | 67.16% |
-| Daily-replan oracle ceiling | 168 h, 40.87% COVE gain |
-| Hourly-replan oracle ceiling | 168 h, 40.85% COVE gain |
+| Daily-replan oracle reference | 168 h, 40.87% COVE reduction |
+| Hourly-replan oracle reference | 168 h, 40.85% COVE reduction |
+
+## Step 2 48 h vs Step 3 1 Forecast
+
+These are intentionally different rows, so their percentages should not match.
+
+| Value | Source | Meaning |
+| ---: | --- | --- |
+| 20.63% | `Summer 2026 REU/rolling horizon/results/current_run_from_knobs/forecast_dispatch_summary.csv` | Step 2 deterministic horizon sweep: one causal forecast path, 48 h planning horizon, 24 h execution/replanning, and the 75 MW direct-reserve policy |
+| 37.23% | `Summer 2026 REU/different scenarios/results/current_run_from_knobs/uncertainty_aware_summary.csv` | Step 3 one-forecast reference inside the scenario runner: current-hour nowcast plus causal ridge future, nowcast-gated recourse, and first-action execution |
+
+Use Step 2 to compare planning horizons. Use Step 3 to compare one forecast
+against 3, 5, 7, and 10 scenarios.
 
 ## Common Storage Setup
 

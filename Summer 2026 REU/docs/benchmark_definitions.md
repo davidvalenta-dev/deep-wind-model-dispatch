@@ -2,7 +2,7 @@
 
 ## Primary Benchmark: 100-MW Constant-Output Baseload Benchmark
 
-This is the main comparison for COVE gain, revenue gain, and summary tables.
+This is the main comparison for COVE reduction, revenue gain, and summary tables.
 
 Required configuration:
 

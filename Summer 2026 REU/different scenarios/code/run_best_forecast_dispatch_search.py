@@ -280,7 +280,7 @@ def make_figures(summary: pd.DataFrame, forecast_metrics: pd.DataFrame, legacy_m
         names = ["Baseload", "Best realistic", "Oracle upper bound"]
         ax.bar(names, values, color=["#64748b", "#16a34a", "#7c3aed"])
         ax.set_ylabel("Realized revenue ($ millions)")
-        ax.set_title("Realistic best vs perfect-future upper bound")
+        ax.set_title("Realistic best vs perfect-information upper bound")
         fig.tight_layout()
         fig.savefig(OUT / "figure_05_realistic_vs_oracle.png", facecolor="white", bbox_inches="tight")
         plt.close(fig)
@@ -414,7 +414,7 @@ def main() -> None:
                 best_labels = labels.copy()
                 best_labels.to_csv(OUT / "best_realistic_dispatch_labels.csv", index=False)
 
-    print("Running perfect-future oracle upper bound for context...", flush=True)
+    print("Running perfect-information oracle upper bound for context...", flush=True)
     actual_wind = actual_future_matrix(generation, origins)
     actual_price = actual_future_matrix(price, origins)
     for horizon in HORIZONS:

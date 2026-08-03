@@ -5,7 +5,7 @@ During the later backtest, each forecast uses only values observed before that
 forecast was issued. Gurobi plans from forecast wind generation and price, but
 only the configured execution block is scored against actual outcomes before
 the controller replans. The oracle wrapper reports a daily-replan oracle and a
-separate hourly 168-hour perfect-future ceiling.
+separate hourly 168-hour perfect-information reference.
 """
 
 from __future__ import annotations
@@ -787,13 +787,13 @@ def save_figures(
             x + width / 2,
             oracle["cove_improvement_vs_100mw_baseload_pct"],
             width,
-            label="Perfect future information",
+            label="Perfect information information",
             color="#CBD5E1",
         )
     axis.set_xticks(x, labels)
-    axis.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    axis.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     axis.set_title(
-        "Realistic forecast dispatch versus perfect-information upper bound",
+        "Realistic forecast dispatch versus perfect-information reference",
         fontweight="bold",
     )
     axis.legend(frameon=False)
@@ -1029,7 +1029,7 @@ def main():
     parser.add_argument(
         "--oracle-only",
         action="store_true",
-        help="Skip causal forecast rows and write only perfect-future oracle hourly CSVs.",
+        help="Skip causal forecast rows and write only perfect-information oracle hourly CSVs.",
     )
     parser.add_argument("--skip-oracle", action="store_true")
     parser.add_argument(

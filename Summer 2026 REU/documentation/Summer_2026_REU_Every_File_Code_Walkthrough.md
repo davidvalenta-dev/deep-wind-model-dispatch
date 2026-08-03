@@ -14,7 +14,7 @@ The Summer 2026 folder is organized as a ladder. Each step adds one idea and sav
 | 1 | `causal ridge regression` | Which forecast method predicts wind power best? | `../../venv/bin/python RUN_1_FORECAST_RMSE.py` |
 | 2 | `rolling horizon` | If we use the causal ridge forecast, which Gurobi planning horizon works best? | `../../venv/bin/python RUN_2_ROLLING_HORIZON.py` |
 | 3 | `different scenarios` | Does using several possible futures improve dispatch over one forecast? | `../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py` |
-| 4 | `oracle upper bound` | What is the ceiling if Gurobi knows the true future? | `../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py` |
+| 4 | `oracle upper bound` | What is the finite-horizon reference if Gurobi knows the true future? | `../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py` |
 
 The repeated pattern in every experiment is:
 
@@ -54,7 +54,7 @@ Main comparison in the corrected terminal output is the 100 MW constant-output b
 | 6 | `prob_preds` | 71.69 | 50.42 | -0.73 |
 
 ### Step 2: Causal Ridge + Daily Rolling-Horizon Gurobi
-| Horizon | COVE | COVE gain vs wind-only | Revenue metric | Raw revenue gain vs wind-only | COVE gain vs 100 MW |
+| Horizon | COVE | COVE reduction vs wind-only | Revenue metric | Raw revenue gain vs wind-only | COVE reduction vs 100 MW |
 |---:|---:|---:|---:|---:|---:|
 | 24 h | 6.966281 | -30.43% | 7,380,799.56 | -7.10% | 18.95% |
 | 48 h | 6.822045 | -27.73% | 7,536,849.56 | -4.12% | 20.63% |
@@ -62,7 +62,7 @@ Main comparison in the corrected terminal output is the 100 MW constant-output b
 | 168 h | 6.847708 | -28.21% | 7,508,603.24 | -4.67% | 20.33% |
 
 ### Step 3: Scenario Dispatch
-| Method | Revenue | Revenue gain vs wind-only | COVE | COVE gain vs wind-only | COVE gain vs 100 MW |
+| Method | Revenue | Revenue gain vs wind-only | COVE | COVE reduction vs wind-only | COVE reduction vs 100 MW |
 |---|---:|---:|---:|---:|---:|
 | 1 forecast | 337,322,348.04 | 21.19% | 0.173884 | -13.72% | 37.23% |
 | 3 scenarios | 353,949,333.45 | 27.16% | 0.165716 | -8.38% | 40.18% |
@@ -71,7 +71,7 @@ Main comparison in the corrected terminal output is the 100 MW constant-output b
 | 10 scenarios | 341,858,797.71 | 22.82% | 0.171577 | -12.21% | 38.06% |
 
 ### Step 4: Daily-Replan Oracle
-| Horizon | COVE | COVE gain vs wind-only | Revenue metric | Raw revenue gain vs wind-only | COVE gain vs 100 MW |
+| Horizon | COVE | COVE reduction vs wind-only | Revenue metric | Raw revenue gain vs wind-only | COVE reduction vs 100 MW |
 |---:|---:|---:|---:|---:|---:|
 | 24 h | 5.236266 | 1.96% | 9,819,350.07 | 24.89% | 39.08% |
 | 48 h | 5.104091 | 4.43% | 10,073,630.57 | 30.49% | 40.62% |
@@ -79,7 +79,7 @@ Main comparison in the corrected terminal output is the 100 MW constant-output b
 | 168 h | 5.082358 | 4.84% | 10,116,705.90 | 30.86% | 40.87% |
 
 ### Step 4 Extra: Hourly-Replan Oracle Ceiling
-- 168 h hourly-replan oracle: COVE `5.076786`, COVE gain vs wind-only `4.84%`, revenue metric `10,127,810.67`, final SoC `200.00 MWh`.
+- 168 h hourly-replan oracle: COVE `5.076786`, COVE reduction vs wind-only `4.84%`, revenue metric `10,127,810.67`, final SoC `200.00 MWh`.
 
 ## How the Code Passes Knobs Into the Real Model
 
@@ -399,14 +399,14 @@ That means the visible `RUN_...py` file is mostly a clean front door. The heavy 
 - Total lines: `59`
 - Purpose: Stores Step 4 oracle knobs.
 - Important: Daily oracle uses execution/replanning 24 h.
-- Important: Hourly oracle ceiling uses execution/replanning 1 h.
+- Important: Hourly oracle reference uses execution/replanning 1 h.
 - Important: Both use 100 MW / 10 h CAES.
 
 ### `Summer 2026 REU/oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py`
 
 - Total lines: `343`
 - Purpose: Front-door runner for oracle upper bound.
-- Important: Prints two separate blocks: daily-replan oracle and hourly-replan oracle ceiling.
+- Important: Prints two separate blocks: daily-replan oracle and hourly-replan oracle reference.
 - Important: Uses wind-only as main comparison and 100 MW benchmark as side information.
 
 | Function | Lines | What it does |
@@ -893,12 +893,12 @@ Three scenarios currently wins on revenue because it adds enough uncertainty cov
 
 ## Deep Dive: Step 4 Oracle
 
-Oracle means perfect future information. It gives Gurobi the actual future wind and actual future price. This is not realistic, but it is useful because it shows the upper bound.
+Oracle means perfect information. It gives Gurobi the actual future wind and actual future price. This is not realistic, but it is useful as a finite-horizon reference.
 
 Step 4 now prints two oracle cases:
 
 - Daily-replan oracle: `--execution-step-hours 24 --replanning-interval-hours 24`. This matches the daily ladder style.
-- Hourly-replan oracle ceiling: `--execution-step-hours 1 --replanning-interval-hours 1`. This is the more aggressive perfect-information ceiling.
+- Hourly-replan oracle reference: `--execution-step-hours 1 --replanning-interval-hours 1`. This is the more aggressive finite-horizon perfect-information reference.
 
 The split is implemented in `RUN_4_ORACLE_UPPER_BOUND.py:284-338`. The function `print_oracle_block` at lines `217-264` prints wind-only first and the 100 MW benchmark underneath.
 

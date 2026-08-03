@@ -50,7 +50,7 @@ cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scena
 ## Step 4
 
 Run perfect-information oracle dispatch. The command prints daily-replan oracle
-results and the separate hourly-replan oracle ceiling.
+results and the separate hourly-replan oracle reference.
 
 Command:
 

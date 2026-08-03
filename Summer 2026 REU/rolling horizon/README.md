@@ -33,7 +33,7 @@ Current common setup:
 
 Current result versus the 100 MW benchmark:
 
-| Horizon | COVE | COVE gain | Revenue metric | Raw revenue gain |
+| Horizon | COVE | COVE reduction | Revenue metric | Raw revenue gain |
 | ---: | ---: | ---: | ---: | ---: |
 | 24 h | 6.966281 | 18.95% | 7,380,799.56 | 22.16% |
 | 48 h | 6.822045 | 20.63% | 7,536,849.56 | 26.08% |
@@ -41,6 +41,11 @@ Current result versus the 100 MW benchmark:
 | 168 h | 6.847708 | 20.33% | 7,508,603.24 | 25.35% |
 
 Best deterministic case: **48 h**.
+
+Important: this `20.63%` value is the Step 2 deterministic horizon-sweep
+result. It is not the same as the Step 3 `1 forecast` scenario-runner
+reference, which uses current-hour nowcast, nowcast-gated recourse, and
+first-action execution inside the scenario comparison.
 
 Wind-only is printed at the bottom of the command output only as secondary
 reference.

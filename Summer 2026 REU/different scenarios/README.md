@@ -32,7 +32,7 @@ Current scenario setup:
 
 Current result versus the 100 MW benchmark:
 
-| Method | Revenue | Revenue gain | COVE | COVE gain |
+| Method | Revenue | Revenue gain | COVE | COVE reduction |
 | --- | ---: | ---: | ---: | ---: |
 | 1 forecast | $337,322,348.04 | 59.31% | 0.173884 | 37.23% |
 | 3 scenarios | $353,949,333.45 | 67.16% | 0.165716 | 40.18% |
@@ -40,7 +40,14 @@ Current result versus the 100 MW benchmark:
 | 7 scenarios | $353,220,656.50 | 66.82% | 0.166058 | 40.05% |
 | 10 scenarios | $341,858,797.71 | 61.45% | 0.171577 | 38.06% |
 
-Best scenario case: **3 scenarios**.
+Highest reported scenario case: **3 scenarios**. The 3-, 5-, and 7-scenario
+cases are very close, so this should be described as the highest reported
+case in the current QA-updated run, not as a universal best scenario count.
+
+Important: the `1 forecast` row here is the fair point-forecast reference for
+the scenario experiment. It is not the same as the Step 2 `48 h` deterministic
+result. Step 3 uses current-hour nowcast, nowcast-gated recourse, and
+first-action execution logic inside the scenario runner.
 
 Wind-only is printed at the bottom of the command output only as secondary
 reference.

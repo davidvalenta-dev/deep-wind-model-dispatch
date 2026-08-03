@@ -1,6 +1,6 @@
 # Oracle Upper-Bound Code
 
-This folder contains the code for the perfect-future upper-bound step.
+This folder contains the code for the perfect-information upper-bound step.
 
 | File | Purpose |
 | --- | --- |

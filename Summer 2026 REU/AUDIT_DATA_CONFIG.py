@@ -132,7 +132,7 @@ def collect_files() -> list[tuple[Path, str, str]]:
     files.append((
         HERE / "oracle upper bound" / "results" / "hourly_168h_oracle_ceiling" / "oracle_dispatch_168h.csv",
         "Step 4 hourly",
-        "hourly-replan oracle 168 h ceiling",
+        "hourly-replan oracle 168 h reference",
     ))
     for name in [
         "single_forecast_recourse_nowcast_gated",

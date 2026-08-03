@@ -140,8 +140,8 @@ def draw_figures(causal: list[dict[str, str]], oracle: list[dict[str, str]]) -> 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
     bars = ax.bar([f"{h} h" for h in horizons], gains, color="#2563EB")
     ax.axhline(0, color="#111827", linewidth=1)
-    ax.set_title("Deterministic Forecast-Driven RH MILP: COVE Gain vs 100 MW Benchmark", fontweight="bold")
-    ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    ax.set_title("Deterministic Forecast-Driven RH MILP: COVE Reduction vs 100 MW Benchmark", fontweight="bold")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
     for bar, value in zip(bars, gains):
@@ -191,7 +191,7 @@ def draw_figures(causal: list[dict[str, str]], oracle: list[dict[str, str]]) -> 
         ax.plot(oracle_h, oracle_g, marker="o", linewidth=2.5, label="Oracle future information", color="#6B7280")
         ax.set_xticks(horizons, [f"{h} h" for h in horizons])
         ax.set_title("Causal Result vs Oracle Context", fontweight="bold")
-        ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+        ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
         ax.legend(frameon=False)
         ax.grid(color="#E5E7EB")
         ax.set_axisbelow(True)
@@ -239,7 +239,7 @@ def main() -> None:
     print(f"100 MW benchmark revenue metric: {benchmark_revenue:,.2f}")
     print(f"100 MW benchmark COVE:           {benchmark_cove:.6f}")
     print()
-    print(f"{'Planning':>10} {'COVE':>10} {'COVE gain %':>12} {'Revenue metric':>18} {'Raw rev gain':>13} {'Final SoC':>12}")
+    print(f"{'Planning':>10} {'COVE':>10} {'COVE reduction %':>12} {'Revenue metric':>18} {'Raw rev gain':>13} {'Final SoC':>12}")
     print("-" * 86)
     for row in causal:
         raw_gain = raw_revenue_gain_vs_100mw(row)
@@ -256,7 +256,7 @@ def main() -> None:
     print("\nBest deterministic case:")
     print(
         f"  {int(float(best['horizon_hours']))} h, "
-        f"{(cove_gain_vs_100mw(best) or 0.0):.2f}% COVE gain vs 100 MW benchmark"
+        f"{(cove_gain_vs_100mw(best) or 0.0):.2f}% COVE reduction vs 100 MW benchmark"
     )
 
     wind_revenue = float(causal[0].get("wind_only_revenue_metric", causal[0]["baseload_revenue_metric"]))
@@ -265,7 +265,7 @@ def main() -> None:
     print("No storage; actual wind delivered directly up to the 249 MW grid cap.")
     print(f"Wind-only revenue metric: {wind_revenue:,.2f}")
     print(f"Wind-only COVE:           {wind_cove:.6f}")
-    print(f"{'Planning':>10} {'COVE gain vs wind-only':>24} {'Raw rev gain vs wind-only':>28}")
+    print(f"{'Planning':>10} {'COVE reduction vs wind-only':>24} {'Raw rev gain vs wind-only':>28}")
     print("-" * 66)
     for row in causal:
         raw_gain_wind = raw_revenue_gain_vs_wind(row)
@@ -280,7 +280,7 @@ def main() -> None:
         print("\nOracle context only:")
         print(
             f"  {int(float(best_oracle['horizon_hours']))} h, "
-            f"{(cove_gain_vs_100mw(best_oracle) or 0.0):.2f}% COVE gain vs 100 MW benchmark"
+            f"{(cove_gain_vs_100mw(best_oracle) or 0.0):.2f}% COVE reduction vs 100 MW benchmark"
         )
 
     figures = draw_figures(causal, oracle)

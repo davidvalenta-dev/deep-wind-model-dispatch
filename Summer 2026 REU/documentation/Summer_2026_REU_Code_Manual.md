@@ -14,7 +14,7 @@ The project predicts wind/power and price, sends those forecasts into a constrai
 | 1 | causal ridge regression | cd "Summer 2026 REU/causal ridge regression" && ../../venv/bin/python RUN_1_FORECAST_RMSE.py | Compares forecast models and selects the causal lag/ridge-style power forecast. This is forecast-only: no battery dispatch, no Gurobi, no COVE. |
 | 2 | rolling horizon | cd "Summer 2026 REU/rolling horizon" && ../../venv/bin/python RUN_2_ROLLING_HORIZON.py | Runs deterministic forecast-driven Gurobi dispatch. It uses the causal forecast, tests different lookahead horizons, executes only the first part, then rolls forward chronologically. |
 | 3 | different scenarios | cd "Summer 2026 REU/different scenarios" && ../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py | Runs uncertainty-aware dispatch. Instead of one predicted future, it gives Gurobi multiple possible futures and requires the first action to work across them. |
-| 4 | oracle upper bound | cd "Summer 2026 REU/oracle upper bound" && ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py | Runs the perfect-future ceiling. Gurobi sees actual future wind and actual future price, so this is not deployable but shows the upper bound under the same storage constraints. |
+| 4 | oracle upper bound | cd "Summer 2026 REU/oracle upper bound" && ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py | Runs the finite-horizon perfect-information reference. Gurobi sees actual future wind and actual future price, so this is not deployable but shows the information value under the same storage constraints. |
 | 5 | b6 verification | cd "Summer 2026 REU/b6 verification" and run the B6 runner/validator from code/ when Chris asks for the frozen B6 package. | Contains the separate B6 frozen 2020 validation packet requested by Chris. It reruns exactly six A/B/C oracle/causal cases and validates the hourly outputs. |
 
 ## Key Formulas
@@ -39,11 +39,11 @@ Revenue is the money score: `revenue = sum(realized_price[t] * delivered_power[t
 | different scenarios/code/run_best_forecast_dispatch_search.py | 482 | Older helper for comparing forecast candidates and summarizing dispatch value. It remains in the scenario folder because scenario summaries reuse its revenue/COVE-style accounting ideas. |
 | different scenarios/code/run_nora_matching_forecast_horizons.py | 775 | Copy of the Nora-style horizon helper used by scenario code. It supplies shared forecasting, Gurobi, revenue, COVE, and constraint functions. |
 | different scenarios/code/run_uncertainty_aware_dispatch.py | 749 | The main uncertainty-aware dispatch engine. It builds multiple plausible wind/price futures, solves a scenario MILP, executes the first hour, and repeats. |
-| oracle upper bound/EXPERIMENT_KNOBS.py | 36 | The one place to change Step 4 perfect-future oracle settings. |
-| oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py | 205 | Main Step 4 command. It reruns the perfect-future oracle upper-bound backtest from the knobs file, filters oracle rows, prints results, and regenerates figures. |
+| oracle upper bound/EXPERIMENT_KNOBS.py | 36 | The one place to change Step 4 perfect-information oracle settings. |
+| oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py | 205 | Main Step 4 command. It reruns the perfect-information oracle upper-bound backtest from the knobs file, filters oracle rows, prints results, and regenerates figures. |
 | oracle upper bound/code/build_oracle_summary.py | 66 | Small post-processing helper that extracts oracle rows from a combined forecast/oracle summary table. |
 | oracle upper bound/code/dataset.py | 44 | Tiny PyTorch Dataset wrappers copied from the original power-model code. They let tensors be indexed by PyTorch DataLoader. |
-| oracle upper bound/code/forecast_backtest_rolling_horizons.py | 1016 | Copied deterministic/oracle backtest engine used by the oracle folder. In Step 4 it is called with --oracle-only, so it writes only perfect-future oracle rows and hourly CSVs. |
+| oracle upper bound/code/forecast_backtest_rolling_horizons.py | 1016 | Copied deterministic/oracle backtest engine used by the oracle folder. In Step 4 it is called with --oracle-only, so it writes only perfect-information oracle rows and hourly CSVs. |
 | oracle upper bound/code/model.py | 190 | Original neural-network model definitions copied into the folder so old model-loading utilities still work locally. |
 | oracle upper bound/code/rolling_horizon_gurobi_dispatch.py | 496 | Copied lower-level Gurobi MILP dispatch engine used by the oracle folder. Same constraints as the rolling-horizon folder. |
 | oracle upper bound/code/storage.py | 159 | Storage technology definitions: lithium-ion, CAES, hydro, lead-acid, flow battery, zinc, hydrogen, gravitational, and thermal. |
@@ -442,7 +442,7 @@ Code flow:
 - Runs the Gurobi backtest.
 - Filters causal_forecast_direct_reserve rows.
 - Prints each horizon and picks the best COVE improvement.
-- Plots COVE gain, COVE level, revenue, runtime, and a 3D horizon tradeoff.
+- Plots COVE reduction, COVE level, revenue, runtime, and a 3D horizon tradeoff.
 
 | Constant / knob | Value or expression |
 | --- | --- |
@@ -941,7 +941,7 @@ Code flow:
 - Builds the scenario command from EXPERIMENT_KNOBS.py.
 - Runs the scenario Gurobi experiment.
 - Reads uncertainty_aware_summary.csv.
-- Prints revenue/COVE gains versus baseload.
+- Prints revenue/COVE reductions versus baseload.
 - Creates COVE, revenue, tradeoff, ladder, and 3D scenario figures.
 
 | Constant / knob | Value or expression |
@@ -1143,7 +1143,7 @@ Important imports: `__future__:annotations, argparse, json, math, os, sys, time,
 
 ## oracle upper bound
 
-Runs the perfect-future ceiling. Gurobi sees actual future wind and actual future price, so this is not deployable but shows the upper bound under the same storage constraints.
+Runs the finite-horizon perfect-information reference. Gurobi sees actual future wind and actual future price, so this is not deployable but shows the information value under the same storage constraints.
 
 Main command: `cd "Summer 2026 REU/oracle upper bound" && ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py`
 
@@ -1151,7 +1151,7 @@ Main command: `cd "Summer 2026 REU/oracle upper bound" && ../../venv/bin/python 
 
 | Question | Answer |
 | --- | --- |
-| Purpose | The one place to change Step 4 perfect-future oracle settings. |
+| Purpose | The one place to change Step 4 perfect-information oracle settings. |
 | When to run | Do not run directly. Edit it, then run RUN_4_ORACLE_UPPER_BOUND.py. |
 | Reads | Defines data path, config, storage settings, SoC fractions, oracle horizon list, and output folder. |
 | Writes | No output by itself. |
@@ -1191,13 +1191,13 @@ Important imports: `pathlib:Path`
 
 | Question | Answer |
 | --- | --- |
-| Purpose | Main Step 4 command. It reruns the perfect-future oracle upper-bound backtest from the knobs file, filters oracle rows, prints results, and regenerates figures. |
+| Purpose | Main Step 4 command. It reruns the perfect-information oracle upper-bound backtest from the knobs file, filters oracle rows, prints results, and regenerates figures. |
 | When to run | ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py |
 | Reads | EXPERIMENT_KNOBS.py and code/forecast_backtest_rolling_horizons.py in oracle-only mode. |
 | Writes | results/current_run_from_knobs/oracle_upper_bound_summary.csv, oracle_dispatch_*h.csv hourly outputs, and figures/step4_*.png. |
 | Line count | 205 |
 
-Top docstring: Step 4: perfect-future oracle upper bound. Run from this folder: ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py This is not a realistic controller. It shows the best possible Gurobi result when the optimizer is allowed to know future wind and future price perfectly.
+Top docstring: Step 4: perfect-information oracle reference. Run from this folder: ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py This is not a realistic controller. It shows a finite-horizon perfect-information result when the optimizer is allowed to know future wind and future price.
 
 Code flow:
 
@@ -1205,7 +1205,7 @@ Code flow:
 - Runs forecast_backtest_rolling_horizons.py with --oracle-only.
 - Keeps only oracle rows.
 - Prints the upper-bound table.
-- Plots oracle gain, COVE, runtime/value, and 3D ceiling figures.
+- Plots oracle COVE reduction, COVE, runtime/value, and 3D reference figures.
 
 | Constant / knob | Value or expression |
 | --- | --- |
@@ -1288,7 +1288,7 @@ Important imports: `torch.utils.data:Dataset`
 
 | Question | Answer |
 | --- | --- |
-| Purpose | Copied deterministic/oracle backtest engine used by the oracle folder. In Step 4 it is called with --oracle-only, so it writes only perfect-future oracle rows and hourly CSVs. |
+| Purpose | Copied deterministic/oracle backtest engine used by the oracle folder. In Step 4 it is called with --oracle-only, so it writes only perfect-information oracle rows and hourly CSVs. |
 | When to run | Usually called by RUN_2_ROLLING_HORIZON.py or RUN_4_ORACLE_UPPER_BOUND.py. Direct flags control data, config, train/test split, storage, horizons, direct reserve, and oracle-only mode. |
 | Reads | data/processed/dataset_1980-2023_withloads_fix.csv, strategy_model/test/run_016/config_run_016.yaml, and helper modules. |
 | Writes | forecast_dispatch_summary.csv, forecast_accuracy_by_lead.csv, forecast_dispatch_*h.csv, oracle_dispatch_*h.csv, figures, and metadata. |
@@ -1637,7 +1637,7 @@ Important imports: `__future__:annotations, argparse, json, pathlib:Path, numpy,
 | --- | --- |
 | Baseload | Reference behavior. In this repo it is the thing every improvement is compared to. The 100 MW baseload tries to deliver 100 MW every hour using wind plus storage. |
 | Causal forecast | A forecast that only uses information available before the decision time. This is realistic. |
-| Oracle | Perfect-future case where Gurobi sees actual future wind and price. Not realistic; used as an upper bound. |
+| Oracle | Perfect-information case where Gurobi sees actual future wind and price. Not realistic; used as a finite-horizon reference. |
 | Rolling horizon | Solve a future-looking optimization, execute only the first part, update SoC, then solve again. |
 | Scenario dispatch | Run optimization with several possible forecast futures instead of one future. |
 | SoC | State of charge: energy currently stored in the battery/CAES system, measured in MWh. |

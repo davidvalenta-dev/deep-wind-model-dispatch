@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Step 4 of the Summer 2026 REU ladder: oracle upper bound.
+"""Step 4 of the Summer 2026 REU ladder: oracle reference.
 
 Run from this folder:
     ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
 
-This is the final 100 MW / 10-hour CAES oracle table. The oracle gives Gurobi the realized
-future wind and realized future price, so it is not deployable. It is included
-only to show the upper bound.
+This is the final 100 MW / 10-hour CAES oracle table. The oracle gives Gurobi
+the realized future wind and realized future price, so it is not deployable. It
+is included as a finite-horizon perfect-information reference.
 """
 
 from __future__ import annotations
@@ -151,8 +151,8 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
     bars = ax.bar([f"{h} h" for h in horizons], gains, color="#B91C1C")
-    ax.set_title("Daily-Replan Oracle: COVE Gain vs 100 MW Benchmark", fontweight="bold")
-    ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    ax.set_title("Daily-Replan Oracle: COVE Reduction vs 100 MW Benchmark", fontweight="bold")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
     for bar, value in zip(bars, gains):
@@ -186,7 +186,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
         ax.annotate(f"{h} h", (x_value, y_value), xytext=(7, 5), textcoords="offset points")
     ax.set_title("Oracle Runtime vs Value", fontweight="bold")
     ax.set_xlabel("Solver runtime (seconds)")
-    ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.grid(color="#E5E7EB")
     fig.tight_layout()
     out = FIGURES / "step4_oracle_runtime_value_tradeoff.png"
@@ -233,7 +233,7 @@ def draw_daily_hourly_figures(
 
     fig, ax = plt.subplots(figsize=(8.2, 5.0), dpi=200)
     bars = ax.bar(labels, gains, color=["#F97316", "#B91C1C"])
-    ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.set_title("Oracle Replanning Frequency: Daily vs Hourly", fontweight="bold")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
@@ -278,7 +278,7 @@ def print_oracle_block(title: str, rows: list[dict[str, str]]) -> None:
     print(f"100 MW benchmark revenue metric: {benchmark_revenue:,.2f}")
     print(f"100 MW benchmark COVE:           {benchmark_cove:.6f}")
     print()
-    print(f"{'Horizon':>8} {'COVE':>10} {'COVE gain %':>12} {'Revenue metric':>18} {'Raw rev gain':>13} {'Final SoC':>12}")
+    print(f"{'Horizon':>8} {'COVE':>10} {'COVE reduction %':>12} {'Revenue metric':>18} {'Raw rev gain':>13} {'Final SoC':>12}")
     print("-" * 86)
     for row in rows:
         raw_gain = raw_revenue_gain_vs_100mw(row)
@@ -295,7 +295,7 @@ def print_oracle_block(title: str, rows: list[dict[str, str]]) -> None:
     print("\nBest in this oracle block:")
     print(
         f"  {int(float(best['horizon_hours']))} h, "
-        f"{(cove_gain_vs_100mw(best) or 0.0):.2f}% COVE gain vs 100 MW benchmark"
+        f"{(cove_gain_vs_100mw(best) or 0.0):.2f}% COVE reduction vs 100 MW benchmark"
     )
 
     wind_revenue = float(rows[0].get("wind_only_revenue_metric", rows[0]["baseload_revenue_metric"]))
@@ -304,7 +304,7 @@ def print_oracle_block(title: str, rows: list[dict[str, str]]) -> None:
     print("No storage; actual wind delivered directly up to the 249 MW grid cap.")
     print(f"Wind-only revenue metric: {wind_revenue:,.2f}")
     print(f"Wind-only COVE:           {wind_cove:.6f}")
-    print(f"{'Horizon':>8} {'COVE gain vs wind-only':>24} {'Raw rev gain vs wind-only':>28}")
+    print(f"{'Horizon':>8} {'COVE reduction vs wind-only':>24} {'Raw rev gain vs wind-only':>28}")
     print("-" * 66)
     for row in rows:
         raw_gain_wind = raw_revenue_gain_vs_wind(row)
@@ -334,13 +334,13 @@ def run_or_read(out_dir: Path, cmd: list[str], enabled: bool) -> list[dict[str, 
 
 def main() -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
-    print("STEP 4: ORACLE UPPER BOUND")
+    print("STEP 4: PERFECT-INFORMATION ORACLE REFERENCE")
     print("This uses the final 100 MW / 10-hour CAES storage setup.")
     print("Primary comparison: 100-MW Constant-Output Baseload Benchmark.")
     print("Wind-only appears only as the secondary reference at the bottom of each block.")
     print("There are two oracle views:")
     print("  1. Daily-replan oracle: execute first 24 hours, then replan.")
-    print("  2. Hourly-replan oracle ceiling: execute first hour, then replan.")
+    print("  2. Hourly-replan oracle reference: execute first hour, then replan.")
     print()
 
     daily_cmd = command(
@@ -365,7 +365,7 @@ def main() -> None:
         int(knobs.HOURLY_CEILING_REPLANNING_INTERVAL_HOURS),
         str(knobs.HOURLY_CEILING_TERMINAL_POLICY),
     )
-    print("\nHOURLY-REPLAN ORACLE CEILING COMMAND")
+    print("\nHOURLY-REPLAN ORACLE REFERENCE COMMAND")
     hourly_oracle = run_or_read(hourly_dir, hourly_cmd, getattr(knobs, "RUN_HOURLY_168H_CEILING", False))
     if hourly_oracle:
         hourly_summary_file = hourly_dir / "oracle_hourly_168h_ceiling_summary.csv"
@@ -373,12 +373,12 @@ def main() -> None:
             writer = csv.DictWriter(handle, fieldnames=list(hourly_oracle[0].keys()))
             writer.writeheader()
             writer.writerows(hourly_oracle)
-        print_oracle_block("HOURLY-REPLAN ORACLE CEILING (execute 1 hour, then replan)", hourly_oracle)
+        print_oracle_block("HOURLY-REPLAN ORACLE REFERENCE (execute 1 hour, then replan)", hourly_oracle)
 
     print("\nMeaning:")
     print("  Oracle is not realistic because it knows future wind and future price.")
     print("  Daily oracle matches the ladder's daily execution style.")
-    print("  Hourly oracle is a separate perfect-information ceiling.")
+    print("  Hourly oracle is a separate finite-horizon perfect-information reference.")
 
     figures = draw_figures(daily_oracle)
     figures.extend(draw_daily_hourly_figures(daily_oracle, hourly_oracle))

@@ -15,7 +15,7 @@ The best current power forecast is the causal lag/ridge model.
 
 ## Layer 2 - Optimization
 
-This layer sends forecast or perfect-future information to Gurobi. Gurobi solves
+This layer sends forecast or perfect-information information to Gurobi. Gurobi solves
 a mixed-integer linear program with charge, discharge, direct wind, delivered
 power, curtailment, and SoC variables.
 
@@ -40,7 +40,7 @@ Current daily-replan ladder:
 solve H hours -> execute 24 hours -> update SoC -> replan next day
 ```
 
-Separate oracle ceiling:
+Separate oracle reference:
 
 ```text
 solve 168 hours -> execute 1 hour -> update SoC -> replan next hour

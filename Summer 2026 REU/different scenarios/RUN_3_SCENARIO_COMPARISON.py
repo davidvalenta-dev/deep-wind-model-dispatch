@@ -253,13 +253,13 @@ def main() -> None:
     print("\nSTEP 3: SCENARIO-BASED ROLLING-HORIZON MILP")
     print("Primary comparison: 100-MW Constant-Output Baseload Benchmark.")
     print("Wind-only baseline is printed at the bottom as secondary reference only.")
-    print("Higher revenue gain is better. COVE gain is positive when COVE is lower than the 100 MW benchmark.")
+    print("Higher revenue gain is better. COVE reduction is positive when COVE is lower than the 100 MW benchmark.")
     print(f"Scenario lookahead: {horizon} h; execution: {execution_policy}.\n")
     print(f"100 MW benchmark revenue: {benchmark_revenue:,.2f}")
     print(f"100 MW benchmark COVE:    {benchmark_cove:.6f}\n")
     print(
         f"{'Method':<16} {'Revenue':>18} {'Revenue gain':>14} "
-        f"{'COVE':>10} {'COVE gain':>12}"
+        f"{'COVE':>10} {'COVE reduction':>12}"
     )
     print("-" * 76)
     print(f"{'100 MW bench':<16} {money(str(benchmark_revenue)):>18} {'0.00%':>14} {benchmark_cove:>10.6f} {'0.00%':>12}")
@@ -277,17 +277,17 @@ def main() -> None:
     print(
         f"  {short_name(best['candidate'])}, "
         f"{float(best['revenue_gain_vs_100mw_baseload_pct']):.2f}% revenue gain vs 100 MW benchmark, "
-        f"{float(best['cove_reduction_vs_100mw_baseload_pct']):.2f}% COVE gain vs 100 MW benchmark"
+        f"{float(best['cove_reduction_vs_100mw_baseload_pct']):.2f}% COVE reduction vs 100 MW benchmark"
     )
     print("\nMeaning:")
     print("  This keeps the Step 2 controller fixed, then changes only the number of forecast futures.")
-    print("  The winning row is the scenario count that gives the best COVE gain against the 100 MW benchmark.")
+    print("  The winning row is the scenario count that gives the best COVE reduction against the 100 MW benchmark.")
 
     print("\nSecondary reference only: Wind-only baseline")
     print("No storage; actual wind delivered directly up to the 249 MW grid cap.")
     print(f"Wind-only revenue: {wind_only_revenue:,.2f}")
     print(f"Wind-only COVE:    {wind_only_cove:.6f}")
-    print(f"{'Method':<16} {'Revenue gain vs wind-only':>26} {'COVE gain vs wind-only':>26}")
+    print(f"{'Method':<16} {'Revenue gain vs wind-only':>26} {'COVE reduction vs wind-only':>26}")
     print("-" * 72)
     for row in rows:
         print(
@@ -305,7 +305,7 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
     bars = ax.bar(labels, gains, color=colors)
-    ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.set_title("Scenario Dispatch: COVE vs 100 MW Benchmark", fontweight="bold")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
@@ -336,7 +336,7 @@ def main() -> None:
     for label, x_value, y_value in zip(labels, rev_gains, gains):
         ax.annotate(label, (x_value, y_value), xytext=(7, 5), textcoords="offset points")
     ax.set_xlabel("Revenue gain vs 100 MW benchmark (%)")
-    ax.set_ylabel("COVE gain vs 100 MW benchmark (%)")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.set_title("Scenario Tradeoff: Revenue and COVE Move Together", fontweight="bold")
     ax.grid(color="#E5E7EB")
     fig.tight_layout()

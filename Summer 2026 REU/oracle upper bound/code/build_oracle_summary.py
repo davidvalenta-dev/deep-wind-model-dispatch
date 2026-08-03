@@ -43,7 +43,7 @@ def main() -> None:
     oracle["case_type"] = "perfect_future_oracle"
     oracle["realistic"] = False
     oracle["meaning"] = (
-        "Gurobi sees the realized future wind and price; this is an upper bound, not a deployable forecast."
+        "Gurobi sees the realized future wind and price; this is a finite-horizon reference, not a deployable forecast."
     )
 
     output = Path(args.output)

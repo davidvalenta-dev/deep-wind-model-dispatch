@@ -61,9 +61,12 @@ Current best:
 
 ```text
 48 h horizon
-COVE gain vs 100 MW benchmark = 20.63%
+COVE reduction vs 100 MW benchmark = 20.63%
 Revenue metric = 7,536,849.56
 ```
+
+This is the Step 2 deterministic horizon-sweep result. It is not the same
+as the Step 3 `1 forecast` scenario-runner reference.
 
 Important files:
 
@@ -99,9 +102,14 @@ Current best:
 
 ```text
 3 scenarios
-COVE gain vs 100 MW benchmark = 40.18%
+COVE reduction vs 100 MW benchmark = 40.18%
 Revenue gain vs 100 MW benchmark = 67.16%
 ```
+
+The Step 3 `1 forecast` row is the matched point-forecast reference inside
+the scenario runner. It uses current-hour nowcast, nowcast-gated recourse,
+and first-action execution logic, so compare it only with the 3/5/7/10
+scenario rows.
 
 Important files:
 
@@ -131,23 +139,23 @@ cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bo
 This prints two oracle blocks:
 
 ```text
-Daily-replan oracle: execute 24 hours, then replan.
-Hourly-replan oracle ceiling: execute 1 hour, then replan.
+Daily-replan oracle reference: execute 24 hours, then replan.
+Hourly-replan oracle reference: execute 1 hour, then replan.
 ```
 
 Current best daily oracle:
 
 ```text
 168 h horizon
-COVE gain vs 100 MW benchmark = 40.87%
+COVE reduction vs 100 MW benchmark = 40.87%
 Revenue metric = 10,116,705.90
 ```
 
-Current hourly ceiling:
+Current hourly oracle reference:
 
 ```text
 168 h horizon
-COVE gain vs 100 MW benchmark = 40.85%
+COVE reduction vs 100 MW benchmark = 40.85%
 Revenue metric = 10,127,810.67
 ```
 

@@ -20,9 +20,9 @@ Wind-only / no storage
 | ---: | --- | --- | --- |
 | 0 | What is the primary benchmark? | `100 MW baseload/RUN_0_100MW_BASELOAD.py` | 100 MW benchmark built with zero QA violations |
 | 1 | Which power forecast is best? | `causal ridge regression/RUN_1_FORECAST_RMSE.py` | causal lag/ridge forecast, 21.24 MW RMSE |
-| 2 | Which deterministic horizon is best? | `rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h, 20.63% COVE gain vs 100 MW benchmark |
-| 3 | Do scenarios improve dispatch? | `different scenarios/RUN_3_SCENARIO_COMPARISON.py` | 3 scenarios, 40.18% COVE gain vs 100 MW benchmark |
-| 4 | What is the perfect-information ceiling? | `oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | 168 h daily oracle, 40.87% COVE gain vs 100 MW benchmark |
+| 2 | Which deterministic horizon is best? | `rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h, 20.63% COVE reduction vs 100 MW benchmark |
+| 3 | Do scenarios improve dispatch? | `different scenarios/RUN_3_SCENARIO_COMPARISON.py` | 3 scenarios, 40.18% COVE reduction vs 100 MW benchmark |
+| 4 | What is the finite-horizon perfect-information reference? | `oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | 168 h daily oracle, 40.87% COVE reduction vs 100 MW benchmark |
 
 ## Result Files
 
@@ -38,8 +38,8 @@ Wind-only / no storage
 | Scenario hourly CSVs | `different scenarios/results/current_run_from_knobs/*_labels.csv` |
 | Daily oracle summary | `oracle upper bound/results/current_run_from_knobs/oracle_upper_bound_summary.csv` |
 | Daily oracle hourly CSVs | `oracle upper bound/results/current_run_from_knobs/oracle_dispatch_*.csv` |
-| Hourly oracle ceiling summary | `oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_hourly_168h_ceiling_summary.csv` |
-| Hourly oracle ceiling CSV | `oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_dispatch_168h.csv` |
+| Hourly oracle reference summary | `oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_hourly_168h_ceiling_summary.csv` |
+| Hourly oracle reference CSV | `oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_dispatch_168h.csv` |
 | Data/config audit | `audit/summer_2026_reu_data_config_audit.csv` |
 
 ## Current Numbers
@@ -48,10 +48,10 @@ Wind-only / no storage
 | --- | ---: |
 | 100 MW benchmark, Step 2/4 period | revenue metric 5,981,942.95; COVE 8.595322 |
 | Causal lag/ridge forecast | 21.24 MW RMSE |
-| Best deterministic case | 48 h, 20.63% COVE gain vs 100 MW benchmark |
-| Best scenario case | 3 scenarios, 40.18% COVE gain vs 100 MW benchmark |
-| Best daily oracle | 168 h, 40.87% COVE gain vs 100 MW benchmark |
-| Hourly oracle ceiling | 168 h, 40.85% COVE gain vs 100 MW benchmark |
+| Best deterministic case | 48 h, 20.63% COVE reduction vs 100 MW benchmark |
+| Best scenario case | 3 scenarios, 40.18% COVE reduction vs 100 MW benchmark |
+| Best daily oracle | 168 h, 40.87% COVE reduction vs 100 MW benchmark |
+| Hourly oracle reference | 168 h, 40.85% COVE reduction vs 100 MW benchmark |
 
 ## QA Status
 

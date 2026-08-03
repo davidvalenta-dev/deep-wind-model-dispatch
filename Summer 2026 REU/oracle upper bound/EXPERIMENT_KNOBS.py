@@ -44,7 +44,7 @@ REPLANNING_INTERVAL_HOURS = 24
 TERMINAL_POLICY = "equal-initial"
 MIP_GAP = 0.0
 
-# Optional extra perfect-future ceiling: 168-hour lookahead with hourly replanning.
+# Optional extra perfect-information reference: 168-hour lookahead with hourly replanning.
 # This is computationally heavy on the full 2014-2023 dataset, so the default
 # current folder uses the daily-replan oracle that matches the ladder.
 RUN_HOURLY_168H_CEILING = False

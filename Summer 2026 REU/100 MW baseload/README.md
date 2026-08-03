@@ -116,7 +116,7 @@ There are also aligned comparison files:
 | --- | --- |
 | `results/comparison_rolling_horizon_vs_100mw_baseload.csv` | causal ridge + rolling-horizon Gurobi against the 100 MW rule |
 | `results/comparison_scenarios_vs_100mw_baseload.csv` | single forecast and scenario dispatch against the 100 MW rule |
-| `results/comparison_oracle_vs_100mw_baseload.csv` | perfect-future oracle against the 100 MW rule |
+| `results/comparison_oracle_vs_100mw_baseload.csv` | perfect-information oracle against the 100 MW rule |
 
 Important: the rolling-horizon/oracle comparison uses the repo's normalized
 price metric, because that is how those folders score their runs. The scenario

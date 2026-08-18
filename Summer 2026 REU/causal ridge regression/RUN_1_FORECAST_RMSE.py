@@ -38,6 +38,7 @@ RMSE_FILE = Path(knobs.RMSE_OUTPUT)
 COMPARE_SCRIPT = HERE / "code" / "compare_forecast_rmse.py"
 DISPATCH_FORECAST_SCRIPT = HERE / "code" / "build_dispatch_causal_ridge.py"
 PREDICTIONS_FILE = Path(knobs.CAUSAL_OUTPUT_DIR) / "causal_lag_forecast_predictions.csv"
+FIGURE_GENERATOR = HERE.parent / "common" / "regenerate_all_figures.py"
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -115,7 +116,7 @@ def main() -> None:
 
     labels = [row["model"].replace("_", " ") for row in rows]
     rmse = [float(row["rmse_mw"]) for row in rows]
-    colors = ["#1B9E77"] + ["#9CA3AF"] * (len(rows) - 1)
+    colors = ["#2F7D7A"] + ["#9AA4B2"] * (len(rows) - 1)
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
     bars = ax.barh(labels, rmse, color=colors)
@@ -149,9 +150,9 @@ def main() -> None:
         predictions = pd.read_csv(PREDICTIONS_FILE, parse_dates=["datetime"])
         week = predictions.iloc[:168].copy()
         fig, ax = plt.subplots(figsize=(12, 5.6), dpi=180)
-        ax.plot(week["datetime"], week["actual_power_mw"], label="Actual power", color="#111827", linewidth=2.0)
-        ax.plot(week["datetime"], week["causal_lag_prediction_mw"], label="Causal lag/ridge", color="#1B9E77", linewidth=1.8)
-        ax.plot(week["datetime"], week["lag1_persistence_prediction_mw"], label="Lag-1 persistence", color="#F59E0B", linewidth=1.4, alpha=0.85)
+        ax.plot(week["datetime"], week["actual_power_mw"], label="Actual power", color="#1F2933", linewidth=2.0)
+        ax.plot(week["datetime"], week["causal_lag_prediction_mw"], label="Causal lag/ridge", color="#2F7D7A", linewidth=1.8)
+        ax.plot(week["datetime"], week["lag1_persistence_prediction_mw"], label="Lag-1 persistence", color="#68778C", linewidth=1.4, alpha=0.85)
         ax.set_ylabel("Power (MW)")
         ax.set_title("Example Forecast Week", fontweight="bold")
         ax.legend(frameon=False, ncol=3)
@@ -164,8 +165,8 @@ def main() -> None:
 
         errors = predictions["causal_lag_prediction_mw"] - predictions["actual_power_mw"]
         fig, ax = plt.subplots(figsize=(9.5, 5.4), dpi=180)
-        ax.hist(errors, bins=70, color="#2563EB", alpha=0.85)
-        ax.axvline(0, color="#111827", linewidth=1.2)
+        ax.hist(errors, bins=70, color="#2F7D7A", alpha=0.85)
+        ax.axvline(0, color="#1F2933", linewidth=1.2)
         ax.set_xlabel("Prediction error (MW)")
         ax.set_ylabel("Hours")
         ax.set_title("Causal Lag/Ridge Error Distribution", fontweight="bold")
@@ -178,10 +179,10 @@ def main() -> None:
         out3 = None
         out4 = None
 
+    subprocess.run([sys.executable, str(FIGURE_GENERATOR), "--step", "1"], cwd=HERE.parent, check=True)
     print("\nFigures saved:")
-    for figure in [out, out2, out3, out4]:
-        if figure is not None:
-            print(f"  {figure}")
+    for figure in sorted(FIGURES.glob("*.png")):
+        print(f"  {figure}")
 
 
 if __name__ == "__main__":

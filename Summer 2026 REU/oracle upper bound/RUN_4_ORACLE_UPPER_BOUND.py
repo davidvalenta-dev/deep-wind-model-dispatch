@@ -20,6 +20,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+FIGURE_GENERATOR = HERE.parent / "common" / "regenerate_all_figures.py"
 REPO_ROOT = HERE.parents[1]
 os.environ["LC_ALL"] = "C"
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "summer_reu_mplconfig"))
@@ -153,7 +154,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     out_paths: list[Path] = []
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    bars = ax.bar([f"{h} h" for h in horizons], gains, color="#B91C1C")
+    bars = ax.bar([f"{h} h" for h in horizons], gains, color="#2F7D7A")
     ax.set_title("Hourly-Replan Oracle: COVE Reduction vs 100 MW Benchmark", fontweight="bold")
     ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.grid(axis="y", color="#E5E7EB")
@@ -167,7 +168,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     out_paths.append(out)
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    ax.plot(horizons, cove, marker="o", linewidth=2.5, color="#B91C1C")
+    ax.plot(horizons, cove, marker="o", linewidth=2.5, color="#203A5F")
     ax.axhline(baseline_cove, color="#6B7280", linestyle="--", label=f"100 MW benchmark COVE = {baseline_cove:.3f}")
     ax.set_xticks(horizons, [f"{h} h" for h in horizons])
     ax.set_title("Hourly-Replan Oracle COVE by Horizon", fontweight="bold")
@@ -184,7 +185,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     out_paths.append(out)
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    ax.scatter(runtime, gains, s=[70 + h for h in horizons], color="#DC2626", alpha=0.85)
+    ax.scatter(runtime, gains, s=[70 + h for h in horizons], color="#2F7D7A", alpha=0.85)
     for h, x_value, y_value in zip(horizons, runtime, gains):
         ax.annotate(f"{h} h", (x_value, y_value), xytext=(7, 5), textcoords="offset points")
     ax.set_title("Oracle Runtime vs Value", fontweight="bold")
@@ -193,24 +194,6 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     ax.grid(color="#E5E7EB")
     fig.tight_layout()
     out = FIGURES / "step4_oracle_runtime_value_tradeoff.png"
-    fig.savefig(out, facecolor="white", bbox_inches="tight")
-    plt.close(fig)
-    out_paths.append(out)
-
-    fig = plt.figure(figsize=(8.4, 6.2), dpi=200)
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot(horizons, revenue, cove, color="#B91C1C", linewidth=2.2)
-    ax.scatter(horizons, revenue, cove, color="#111827", s=55)
-    for h, rev, cove_value in zip(horizons, revenue, cove):
-        ax.text(h, rev, cove_value, f"{h}h", fontsize=9)
-    ax.set_xlabel("Lookahead (h)")
-    ax.set_ylabel("Normalized revenue metric (millions)")
-    ax.set_zlabel("")
-    ax.set_title("3D Oracle Revenue-COVE View", fontweight="bold")
-    ax.view_init(elev=24, azim=-52)
-    fig.subplots_adjust(left=0.02, right=0.74, bottom=0.10, top=0.90)
-    fig.text(0.78, 0.52, "COVE", rotation=90, va="center", ha="center", fontsize=11)
-    out = FIGURES / "step4_3d_oracle_revenue_cove.png"
     fig.savefig(out, facecolor="white", bbox_inches="tight")
     plt.close(fig)
     out_paths.append(out)
@@ -315,7 +298,9 @@ def main() -> None:
     print("  Every reported oracle executes one hour and replans hourly.")
     print("  The 168-hour row is a finite-window ceiling, not a full-dataset all-knowing solve.")
 
-    figures = draw_figures(hourly_sweep_oracle)
+    draw_figures(hourly_sweep_oracle)
+    subprocess.run([sys.executable, str(FIGURE_GENERATOR), "--step", "4"], cwd=HERE.parent, check=True)
+    figures = sorted(FIGURES.glob("*.png"))
     print("\nFiles updated:")
     print(f"  {ORACLE_ONLY_FILE}")
     print(f"  {FULL_HOURLY}")

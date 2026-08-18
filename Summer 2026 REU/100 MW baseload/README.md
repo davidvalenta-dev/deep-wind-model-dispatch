@@ -71,6 +71,15 @@ The hourly CSV records direct wind, charge, discharge, delivered power,
 curtailment, shortfall, SoC before/after, both price measures, both revenue
 measures, and annual-target control fields for every evaluated hour.
 
+## Figures
+
+| Figure | What it shows |
+| --- | --- |
+| `step0_100mw_baseload_2014_2023_example_week.png` | A representative week of actual wind, delivered power, the 100 MW target, and chronological SoC. |
+| `step0_energy_flow_totals.png` | Full-period delivered, charged, discharged, curtailed, and shortfall energy. |
+| `step0_soc_duration_curve.png` | How often the benchmark operated at each stored-energy level. |
+| `step0_annual_raw_revenue.png` | Raw realized revenue for each evaluation year. |
+
 ## Code Map
 
 | File | Role |

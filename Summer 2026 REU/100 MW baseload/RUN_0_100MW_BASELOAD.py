@@ -22,6 +22,7 @@ FIGURES = HERE / "figures"
 RUNNER = HERE / "code" / "build_100mw_baseload_reference.py"
 HOURLY = RESULTS / "constant_output_baseload_100mw_2014_2023_hourly.csv"
 SUMMARY = RESULTS / "constant_output_baseload_100mw_2014_2023_summary.csv"
+FIGURE_GENERATOR = HERE.parent / "common" / "regenerate_all_figures.py"
 
 
 def command() -> list[str]:
@@ -73,14 +74,14 @@ def draw_example_week(hourly: pd.DataFrame) -> Path:
     week = hourly.iloc[:168].copy()
     timestamp = pd.to_datetime(week["datetime"])
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 6.8), dpi=180, sharex=True)
-    ax1.plot(timestamp, week["actual_wind_mw"], label="Actual wind", color="#2563EB", linewidth=1.5)
-    ax1.plot(timestamp, week["delivered_power_mw"], label="Delivered power", color="#0F766E", linewidth=1.7)
-    ax1.axhline(knobs.TARGET_OUTPUT_MW, color="#D97706", linestyle="--", label="100 MW target")
+    ax1.plot(timestamp, week["actual_wind_mw"], label="Actual wind", color="#68778C", linewidth=1.5)
+    ax1.plot(timestamp, week["delivered_power_mw"], label="Delivered power", color="#2F7D7A", linewidth=1.7)
+    ax1.axhline(knobs.TARGET_OUTPUT_MW, color="#203A5F", linestyle="--", label="100 MW target")
     ax1.set_ylabel("Power (MW)")
     ax1.legend(frameon=False, ncol=3)
     ax1.grid(color="#E5E7EB")
     soc_column = "soc_end_mwh"
-    ax2.plot(timestamp, week[soc_column], color="#7C3AED", linewidth=1.7)
+    ax2.plot(timestamp, week[soc_column], color="#6F627A", linewidth=1.7)
     ax2.axhline(knobs.MIN_SOC_MWH, color="#6B7280", linestyle=":")
     ax2.axhline(knobs.MAX_SOC_MWH, color="#6B7280", linestyle=":")
     ax2.set_ylabel("Stored energy (MWh)")
@@ -108,6 +109,7 @@ def main() -> None:
     row = pd.read_csv(SUMMARY).iloc[0]
     hourly = pd.read_csv(HOURLY)
     figure = draw_example_week(hourly)
+    subprocess.run([sys.executable, str(FIGURE_GENERATOR), "--step", "0"], cwd=HERE.parent, check=True)
     print("STEP 0: 100-MW CONSTANT-OUTPUT BASELOAD BENCHMARK")
     print(f"Period:          {row['period_start']} to {row['period_end']}")
     print(f"Hours:           {int(row['hours']):,}")
@@ -118,7 +120,7 @@ def main() -> None:
     print(f"Annual/final violations: {int(row['annual_soc_target_violation_count'])} / {int(row['final_soc_target_violation_count'])}")
     print(f"Hourly CSV:      {HOURLY}")
     print(f"Summary CSV:     {SUMMARY}")
-    print(f"Figure:          {figure}")
+    print(f"Figures folder:  {FIGURES}")
 
 
 if __name__ == "__main__":

@@ -113,3 +113,26 @@ common 100 MW / 10 h checks.
 
 See `RUN_COMMANDS.md` and each subfolder README for exact output paths and code
 maps.
+
+## Figure Set
+
+The frozen package now contains **34 current-data figures**: four for Step 0,
+eight for Step 1, seven for Step 2, eight for Step 3, and seven for Step 4.
+They use one restrained navy/teal/gray/plum palette, large labels, white
+backgrounds, and readable 2D scorecards. The older 3D charts were removed
+because their perspective compressed the important differences and made labels
+hard to read.
+
+Regenerate every figure directly from the frozen CSVs:
+
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU"
+../venv/bin/python common/regenerate_all_figures.py --step all
+```
+
+Use `--step 0`, `--step 1`, `--step 2`, `--step 3`, or `--step 4` to rebuild
+only one folder. Every front-door `RUN_*.py` command also invokes the same
+generator for its own step after loading or rerunning the experiment.
+
+See `FIGURE_INDEX.md` for the complete file list and the question answered by
+each figure.

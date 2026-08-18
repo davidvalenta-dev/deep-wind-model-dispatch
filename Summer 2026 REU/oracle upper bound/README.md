@@ -53,6 +53,14 @@ results/frozen_controlled/oracle_dispatch_168h.csv
 results/full_hourly_outputs/
 ```
 
+## Figures
+
+The seven current figures show Oracle COVE reduction, COVE level, revenue,
+runtime/value tradeoff, incremental perfect-information value, the remaining
+gap to the 168-hour Oracle, and a readable two-panel scorecard. The former 3D
+Oracle chart was removed because the 48-, 72-, and 168-hour values are too
+close for perspective plotting to communicate them accurately.
+
 ## Code Map
 
 | File | Role |

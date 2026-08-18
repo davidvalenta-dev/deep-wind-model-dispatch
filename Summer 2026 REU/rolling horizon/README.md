@@ -69,6 +69,14 @@ Each horizon folder contains the complete hourly dispatch CSV, summary, and
 metadata. Step 3 copies the winning 168-hour one-forecast row directly from
 this controlled result, then changes only scenario count.
 
+## Figures
+
+The seven current figures show COVE reduction, COVE level, revenue metric,
+incremental value from extending the horizon, runtime/value tradeoff, matched
+revenue/COVE small multiples, and a compact horizon scorecard. They are rebuilt
+from `controlled_single_forecast_horizon_summary.csv`; no plotted value is
+typed manually.
+
 ## Code Map
 
 | File | Role |

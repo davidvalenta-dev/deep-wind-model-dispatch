@@ -79,3 +79,12 @@ Canonical values and source files are listed in
 [`PAPER_RESULT_FILE_MAP.md`](Summer%202026%20REU/PAPER_RESULT_FILE_MAP.md).
 Exact commands are listed in
 [`RUN_COMMANDS.md`](Summer%202026%20REU/RUN_COMMANDS.md).
+
+The paper-facing package includes 34 regenerated figures in a consistent,
+restrained visual style. The complete chart list and meaning of each figure are
+in [`FIGURE_INDEX.md`](Summer%202026%20REU/FIGURE_INDEX.md). To rebuild all
+figures from the frozen CSVs without rerunning Gurobi:
+
+```bash
+./venv/bin/python "Summer 2026 REU/common/regenerate_all_figures.py" --step all
+```

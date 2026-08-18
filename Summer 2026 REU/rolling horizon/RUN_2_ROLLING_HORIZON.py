@@ -44,6 +44,7 @@ FIGURES = HERE / "figures"
 FULL_HOURLY = HERE / "results" / "full_hourly_outputs"
 SUMMARY_FILE = RESULTS / "controlled_single_forecast_horizon_summary.csv"
 SUMMARY_ALIAS = HERE / "results" / "causal_ridge_rolling_horizon_summary.csv"
+FIGURE_GENERATOR = HERE.parent / "common" / "regenerate_all_figures.py"
 CANONICAL_DISPATCH_COST_USD = 51_416_725.0
 CANONICAL_WIND_ONLY_COST_USD = 42_559_080.0
 
@@ -268,7 +269,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     paths: list[Path] = []
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    ax.plot(horizons, gains, marker="o", linewidth=2.6, color="#2563EB")
+    ax.plot(horizons, gains, marker="o", linewidth=2.6, color="#2F7D7A")
     ax.set_xticks(horizons, [f"{h} h" for h in horizons])
     ax.set_title("Controlled Hourly-Replan Horizon Comparison", fontweight="bold")
     ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
@@ -283,7 +284,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     paths.append(path)
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    ax.plot(horizons, coves, marker="o", linewidth=2.6, color="#1D4ED8")
+    ax.plot(horizons, coves, marker="o", linewidth=2.6, color="#203A5F")
     ax.axhline(benchmark_cove, color="#6B7280", linestyle="--", label=f"100 MW benchmark = {benchmark_cove:.3f}")
     ax.set_xticks(horizons, [f"{h} h" for h in horizons])
     ax.set_title("Controlled COVE by Planning Horizon", fontweight="bold")
@@ -298,7 +299,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     paths.append(path)
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    bars = ax.bar([f"{h} h" for h in horizons], revenues, color="#0F766E")
+    bars = ax.bar([f"{h} h" for h in horizons], revenues, color="#2F7D7A")
     ax.set_title("Reported Revenue Metric by Controlled Planning Horizon", fontweight="bold")
     ax.set_ylabel("Normalized price-weighted revenue metric (millions)")
     ax.grid(axis="y", color="#E5E7EB")
@@ -389,7 +390,9 @@ def main() -> None:
         )
 
     report_step3_equivalence(rows)
-    figures = draw_figures(rows)
+    draw_figures(rows)
+    subprocess.run([sys.executable, str(FIGURE_GENERATOR), "--step", "2"], cwd=HERE.parent, check=True)
+    figures = sorted(FIGURES.glob("*.png"))
     print("\nFiles written:")
     print(f"  {SUMMARY_FILE}")
     print(f"  {SUMMARY_ALIAS}")

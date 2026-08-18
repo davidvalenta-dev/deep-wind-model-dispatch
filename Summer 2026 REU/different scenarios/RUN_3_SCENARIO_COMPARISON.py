@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+FIGURE_GENERATOR = HERE.parent / "common" / "regenerate_all_figures.py"
 os.environ["LC_ALL"] = "C"
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "summer_reu_mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(Path(tempfile.gettempdir()) / "summer_reu_cache"))
@@ -26,7 +27,6 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 import EXPERIMENT_KNOBS as knobs
 
@@ -374,7 +374,7 @@ def main() -> None:
     rev_gains = [0.0] + [float(row["revenue_gain_vs_100mw_baseload_pct"]) for row in rows]
     revenues = [benchmark_revenue] + [float(row["dispatch_revenue"]) for row in rows]
     coves = [benchmark_cove] + [float(row["dispatch_cove_index"]) for row in rows]
-    colors = ["#9CA3AF", "#2563EB", "#0EA5E9", "#7C3AED", "#C026D3", "#EA580C"]
+    colors = ["#9AA4B2", "#203A5F", "#2F7D7A", "#68778C", "#6F627A", "#4F6D7A"]
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
     bars = ax.bar(labels, gains, color=colors)
@@ -405,7 +405,7 @@ def main() -> None:
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
-    ax.plot(rev_gains, gains, linewidth=1.8, color="#94A3B8", zorder=1)
+    ax.plot(rev_gains, gains, linewidth=1.8, color="#68778C", zorder=1)
     for label, x_value, y_value, color in zip(labels, rev_gains, gains, colors):
         ax.scatter(x_value, y_value, s=70, color=color, label=label, zorder=2)
     ax.set_xlabel("Revenue gain vs 100 MW benchmark (%)")
@@ -425,7 +425,7 @@ def main() -> None:
         float(best["dispatch_revenue"]) / 1e6,
     ]
     fig, ax = plt.subplots(figsize=(9.2, 5.2), dpi=180)
-    bars = ax.bar(ladder_labels, ladder_values, color=["#9CA3AF", "#2563EB", "#7C3AED"])
+    bars = ax.bar(ladder_labels, ladder_values, color=["#9AA4B2", "#2F7D7A", "#6F627A"])
     ax.set_ylabel("Normalized price-weighted revenue metric (millions)")
     ax.set_title("Ladder Result: Forecast Dispatch to Scenario Dispatch", fontweight="bold")
     ax.grid(axis="y", color="#E5E7EB")
@@ -437,27 +437,10 @@ def main() -> None:
     fig.savefig(out4, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
-    scenario_counts = [0, 1, 3, 5, 7, 10]
-    fig = plt.figure(figsize=(8.8, 6.4), dpi=180)
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot(scenario_counts, [value / 1e6 for value in revenues], coves, color="#0F766E", linewidth=2.2)
-    ax.scatter(scenario_counts, [value / 1e6 for value in revenues], coves, color="#EF4444", s=55)
-    for count, label, revenue_value, cove_value in zip(scenario_counts, labels, revenues, coves):
-        ax.text(count, revenue_value / 1e6, cove_value, label.replace(" scenarios", "sc"), fontsize=8)
-    ax.set_xlabel("Scenario count")
-    ax.set_ylabel("Normalized revenue metric (millions)")
-    ax.set_zlabel("")
-    ax.set_title("3D Scenario View: More Scenarios Is Not Automatically Better", fontweight="bold")
-    ax.view_init(elev=24, azim=-48)
-    fig.subplots_adjust(left=0.02, right=0.74, bottom=0.10, top=0.90)
-    fig.text(0.78, 0.52, "COVE", rotation=90, va="center", ha="center", fontsize=11)
-    out5 = FIGURES / "step3_3d_scenario_revenue_cove.png"
-    fig.savefig(out5, facecolor="white", bbox_inches="tight")
-    plt.close(fig)
-
+    subprocess.run([sys.executable, str(FIGURE_GENERATOR), "--step", "3"], cwd=HERE.parent, check=True)
     print("\nFigures saved:")
     print(f"\nEnriched summary saved:\n  {ENRICHED_SUMMARY_FILE}")
-    for figure in [out1, out2, out3, out4, out5]:
+    for figure in sorted(FIGURES.glob("*.png")):
         print(f"  {figure}")
 
 

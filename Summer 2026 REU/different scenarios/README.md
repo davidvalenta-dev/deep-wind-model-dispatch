@@ -66,6 +66,14 @@ results/frozen_controlled/ten_scenario_expected_nowcast_gated_labels.csv
 results/frozen_controlled/experiment_metadata.json
 ```
 
+## Figures
+
+The eight current figures report COVE reduction, revenue gain, the
+revenue/COVE tradeoff, benchmark-to-controller progression, a two-panel
+scenario scorecard, change relative to one forecast, solver runtime, and
+scenario-count sensitivity. The former 3D scenario chart was replaced with a
+2D scorecard so the small differences and labels remain readable.
+
 ## Code Map
 
 | File | Role |

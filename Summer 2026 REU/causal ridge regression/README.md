@@ -37,14 +37,22 @@ RNN RMSE = 46.21 MW
 
 This step does not have COVE improvement because no energy dispatch happens yet. It only chooses the forecast signal used by the Gurobi dispatch steps.
 
-Generated figure:
+Generated figures:
 
 ```text
 figures/step1_forecast_rmse_comparison.png
 figures/step1_rmse_mae_tradeoff.png
 figures/step1_example_forecast_week.png
 figures/step1_causal_error_distribution.png
+figures/step1_actual_vs_predicted_density.png
+figures/step1_error_by_power_bin.png
+figures/step1_dispatch_forecast_accuracy_by_lead.png
+figures/step1_split_stability.png
 ```
+
+Together these show model ranking, RMSE/MAE tradeoffs, a representative week,
+the complete error distribution, actual-versus-predicted density, error by
+power range, accuracy by forecast lead, and stability across data splits.
 
 ## Code In This Folder
 

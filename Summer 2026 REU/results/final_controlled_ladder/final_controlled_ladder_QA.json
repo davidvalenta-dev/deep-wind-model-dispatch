@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "evaluation_period": [
+    "2014-01-01 00:00:00",
+    "2023-12-23 05:00:00"
+  ],
+  "hours": 87417,
+  "execution_step_hours": 1,
+  "replanning_interval_hours": 1,
+  "annual_and_final_soc_target_mwh": 600.0,
+  "benchmark_revenue_metric": 5962774.411855166,
+  "benchmark_cove": 8.62295325105264,
+  "causal_ridge_forecast_sha256": "318cdac27903e562204f1c78701745dbddb55edd32dd25459d7c79287a62fc91",
+  "step2_winning_horizon_hours": 168,
+  "step2_step3_single_forecast_exact_match": true
+}

@@ -1,6 +1,7 @@
 # B6 Verification
 
-This folder is separate from the paper-facing ladder.
+> Historical verification package only. This folder is separate from the
+> frozen 2014-2023 paper-facing ladder and does not supply its headline values.
 
 Chris requested B6 as a frozen 2020 verification package with six cases:
 

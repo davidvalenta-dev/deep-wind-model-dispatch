@@ -4,8 +4,8 @@ The forecasting models are trained on an early chronological period and frozen.
 During the later backtest, each forecast uses only values observed before that
 forecast was issued. Gurobi plans from forecast wind generation and price, but
 only the configured execution block is scored against actual outcomes before
-the controller replans. The Summer 2026 ladder currently uses 24-hour execution
-with 24-hour replanning.
+the controller replans. The frozen Summer 2026 ladder executes one hour and
+replans every hour.
 """
 
 from __future__ import annotations

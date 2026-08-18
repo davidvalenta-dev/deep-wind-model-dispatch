@@ -4,7 +4,7 @@ The forecasting models are trained on an early chronological period and frozen.
 During the later backtest, each forecast uses only values observed before that
 forecast was issued. Gurobi plans from forecast wind generation and price, but
 only the configured execution block is scored against actual outcomes before
-the controller replans. The oracle wrapper reports a daily-replan oracle and a
+the controller replans. The controlled oracle wrapper reports an hourly-replan oracle and a
 separate hourly 168-hour perfect-information reference.
 """
 
@@ -33,13 +33,15 @@ SUMMER_STEP_DIR = Path(__file__).resolve().parents[1]
 LOCAL_CODE_DIR = Path(__file__).resolve().parent
 STRATEGY_SRC = REPO_ROOT / "strategy_model" / "src"
 OPTIMIZATION_DIR = REPO_ROOT / "strategy_model" / "optimization"
-for module_path in (OPTIMIZATION_DIR, STRATEGY_SRC, LOCAL_CODE_DIR):
+COMMON_DIR = REPO_ROOT / "Summer 2026 REU" / "common"
+for module_path in (OPTIMIZATION_DIR, STRATEGY_SRC, LOCAL_CODE_DIR, COMMON_DIR):
     module_path_text = str(module_path)
     while module_path_text in sys.path:
         sys.path.remove(module_path_text)
     sys.path.insert(0, module_path_text)
 
 import util  # noqa: E402
+from annual_soc import next_target_corridor  # noqa: E402
 from rolling_horizon_gurobi_dispatch import (  # noqa: E402
     continuous_baseload,
     cove_value,
@@ -258,6 +260,11 @@ def execute_plan_against_actual(
     config: dict,
     min_soc_frac: float,
     max_soc_frac: float,
+    timestamps: pd.Series,
+    final_timestamp: pd.Timestamp,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    annual_soc_settlement_hours: int,
 ) -> dict[str, np.ndarray]:
     rating = float(config["storage_rating"] * config["num_modules"])
     capacity = float(
@@ -284,6 +291,10 @@ def execute_plan_against_actual(
     curtailment = np.zeros(n)
     storage = np.zeros(n + 1)
     mode = np.zeros(n)
+    target_active = np.zeros(n)
+    target_lower = np.full(n, np.nan)
+    target_upper = np.full(n, np.nan)
+    target_value = np.full(n, np.nan)
     storage[0] = float(np.clip(initial_soc, min_soc, max_soc))
 
     for t, generation in enumerate(actual_generation):
@@ -300,6 +311,63 @@ def execute_plan_against_actual(
 
         wind_after_charge = max(0.0, generation - charge[t])
         direct[t] = min(planned_direct, wind_after_charge, max(0.0, grid_cap - discharge[t]))
+
+        corridor = next_target_corridor(
+            pd.Timestamp(timestamps.iloc[t]),
+            pd.Timestamp(final_timestamp),
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            min_soc,
+            max_soc,
+            rating,
+            rte,
+            annual_soc_settlement_hours,
+        )
+        target_active[t] = float(corridor.active)
+        target_lower[t] = corridor.lower_mwh
+        target_upper[t] = corridor.upper_mwh
+        target_value[t] = np.nan if corridor.target_mwh is None else corridor.target_mwh
+        if corridor.active and corridor.target_mwh is not None:
+            if storage[t] < corridor.target_mwh - 1e-7:
+                discharge[t] = 0.0
+                charge[t] = min(
+                    rating,
+                    max(generation, 0.0),
+                    max_soc - storage[t],
+                    corridor.target_mwh - storage[t],
+                )
+                mode[t] = 1.0
+                direct[t] = min(planned_direct, max(0.0, generation - charge[t]), grid_cap)
+            else:
+                discharge[t] = min(
+                    discharge[t],
+                    max(0.0, (storage[t] - corridor.target_mwh) * rte),
+                )
+                direct[t] = min(
+                    planned_direct,
+                    max(0.0, generation - charge[t]),
+                    max(0.0, grid_cap - discharge[t]),
+                )
+        projected_soc = storage[t] + charge[t] - discharge[t] / rte
+        if projected_soc < corridor.lower_mwh - 1e-7:
+            discharge[t] = 0.0
+            required_charge = max(0.0, corridor.lower_mwh - storage[t])
+            feasible_charge = min(rating, max(generation, 0.0), max_soc - storage[t])
+            if required_charge > feasible_charge + 1e-6:
+                raise RuntimeError(f"Annual SoC floor infeasible at {timestamps.iloc[t]}")
+            charge[t] = max(charge[t], required_charge)
+            mode[t] = 1.0
+            direct[t] = min(planned_direct, max(0.0, generation - charge[t]), grid_cap)
+        projected_soc = storage[t] + charge[t] - discharge[t] / rte
+        if projected_soc > corridor.upper_mwh + 1e-7:
+            charge[t] = 0.0
+            required_discharge = max(0.0, (storage[t] - corridor.upper_mwh) * rte)
+            feasible_discharge = min(rating, max(0.0, (storage[t] - min_soc) * rte), grid_cap)
+            if required_discharge > feasible_discharge + 1e-6:
+                raise RuntimeError(f"Annual SoC ceiling infeasible at {timestamps.iloc[t]}")
+            discharge[t] = max(discharge[t], required_discharge)
+            mode[t] = 0.0
+            direct[t] = min(planned_direct, max(generation, 0.0), max(0.0, grid_cap - discharge[t]))
         delivered[t] = direct[t] + discharge[t]
         curtailment[t] = max(0.0, generation - direct[t] - charge[t])
         storage[t + 1] = storage[t] + charge[t] - discharge[t] / rte
@@ -312,6 +380,10 @@ def execute_plan_against_actual(
         "curtailment": curtailment,
         "storage": storage,
         "mode": mode,
+        "annual_soc_control_active": target_active,
+        "annual_soc_lower_bound_mwh": target_lower,
+        "annual_soc_upper_bound_mwh": target_upper,
+        "annual_soc_target_mwh": target_value,
     }
 
 
@@ -388,15 +460,20 @@ def year_end_soc_targets(
     origin: int,
     available_horizon: int,
     annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    evaluation_end_exclusive: int,
 ) -> dict[int, float]:
-    """Return SoC-index targets for Dec. 31 23:00 hours inside a window."""
-    if annual_target_soc_mwh is None:
+    """Return annual and final SoC-index targets inside a planning window."""
+    if annual_target_soc_mwh is None and final_target_soc_mwh is None:
         return {}
     targets: dict[int, float] = {}
     window_times = pd.to_datetime(timestamps.iloc[origin : origin + available_horizon])
     for offset, stamp in enumerate(window_times):
         if stamp.month == 12 and stamp.day == 31 and stamp.hour == 23:
-            targets[offset + 1] = float(annual_target_soc_mwh)
+            if annual_target_soc_mwh is not None:
+                targets[offset + 1] = float(annual_target_soc_mwh)
+        if origin + offset == evaluation_end_exclusive - 1 and final_target_soc_mwh is not None:
+            targets[offset + 1] = float(final_target_soc_mwh)
     return targets
 
 
@@ -430,10 +507,14 @@ def wind_only_delivery(power: np.ndarray, config: dict) -> np.ndarray:
 
 def constant_output_100mw_delivery(
     power: np.ndarray,
+    timestamps: pd.Series,
     config: dict,
     initial_soc: float,
     min_soc_frac: float,
     max_soc_frac: float,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    annual_soc_settlement_hours: int,
     target_mw: float = 100.0,
 ) -> np.ndarray:
     """Chris's 100-MW rule-based wind-storage benchmark."""
@@ -453,15 +534,15 @@ def constant_output_100mw_delivery(
     max_soc = capacity * max_soc_frac
     soc = float(np.clip(initial_soc, min_soc, max_soc))
     delivered = np.zeros(len(power), dtype=float)
+    final_timestamp = pd.Timestamp(timestamps.iloc[-1])
 
     for idx, generation_value in enumerate(power):
         generation = max(0.0, float(generation_value))
+        direct = charge = discharge = 0.0
         if generation >= target_mw:
             direct = min(target_mw, grid_cap)
             room = max(0.0, max_soc - soc)
             charge = min(generation - direct, rating, room)
-            delivered[idx] = direct
-            soc += charge
         else:
             direct = min(generation, grid_cap)
             needed = max(0.0, target_mw - direct)
@@ -471,8 +552,42 @@ def constant_output_100mw_delivery(
                 max(0.0, (soc - min_soc) * rte),
                 max(0.0, grid_cap - direct),
             )
-            delivered[idx] = direct + discharge
-            soc -= discharge / rte
+        corridor = next_target_corridor(
+            pd.Timestamp(timestamps.iloc[idx]),
+            final_timestamp,
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            min_soc,
+            max_soc,
+            rating,
+            rte,
+            annual_soc_settlement_hours,
+        )
+        if corridor.active and corridor.target_mwh is not None:
+            if soc < corridor.target_mwh - 1e-7:
+                discharge = 0.0
+                charge = min(rating, generation, max_soc - soc, corridor.target_mwh - soc)
+                direct = min(target_mw, max(0.0, generation - charge), grid_cap)
+            else:
+                discharge = min(discharge, max(0.0, (soc - corridor.target_mwh) * rte))
+                direct = min(direct, generation, max(0.0, grid_cap - discharge))
+        projected = soc + charge - discharge / rte
+        if projected < corridor.lower_mwh - 1e-7:
+            discharge = 0.0
+            required_charge = max(0.0, corridor.lower_mwh - soc)
+            feasible_charge = min(rating, generation, max_soc - soc)
+            if required_charge > feasible_charge + 1e-6:
+                raise RuntimeError(f"100 MW benchmark annual floor infeasible at {timestamps.iloc[idx]}")
+            charge = max(charge, required_charge)
+            direct = min(target_mw, max(0.0, generation - charge), grid_cap)
+        projected = soc + charge - discharge / rte
+        if projected > corridor.upper_mwh + 1e-7:
+            charge = 0.0
+            required_discharge = max(0.0, (soc - corridor.upper_mwh) * rte)
+            discharge = max(discharge, required_discharge)
+            direct = min(direct, generation, max(0.0, grid_cap - discharge))
+        delivered[idx] = direct + discharge
+        soc = float(np.clip(soc + charge - discharge / rte, min_soc, max_soc))
     return delivered
 
 
@@ -529,6 +644,8 @@ def run_horizon(
     replanning_interval_hours: int,
     terminal_policy: str,
     annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    annual_soc_settlement_hours: int,
 ) -> tuple[pd.DataFrame, dict]:
     actual_generation = df["power_generated"].to_numpy(dtype=float)
     actual_price = df["price_normalized"].to_numpy(dtype=float)
@@ -537,6 +654,7 @@ def run_horizon(
     rows = []
     solver_runtime = 0.0
     started = time.perf_counter()
+    evaluation_end_exclusive = min(int(origins[-1]) + execution_step_hours, len(df))
 
     for origin_row, origin in enumerate(origins):
         available_horizon = min(horizon, len(df) - origin)
@@ -553,22 +671,15 @@ def run_horizon(
             ]
             planned_price = price_forecasts[origin_row, :available_horizon]
 
-        soc_targets = (
-            year_end_soc_targets(
-                df["datetime"],
-                int(origin),
-                available_horizon,
-                annual_target_soc_mwh,
-            )
-            if perfect_information
-            else {}
-        )
+        # The common realized SoC corridor is used by every controller. This
+        # avoids a short-window infeasibility and prevents a magical reset.
+        soc_targets: dict[int, float] = {}
         solution = solve_window(
             planned_generation,
             planned_price,
             config,
             current_soc,
-            terminal_policy,
+            "none" if soc_targets else terminal_policy,
             min_soc_frac,
             max_soc_frac,
             mip_gap,
@@ -588,6 +699,11 @@ def run_horizon(
             config,
             min_soc_frac,
             max_soc_frac,
+            df["datetime"].iloc[origin : origin + execute_len].reset_index(drop=True),
+            pd.Timestamp(df["datetime"].iloc[evaluation_end_exclusive - 1]),
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            annual_soc_settlement_hours,
         )
 
         for k in range(execute_len):
@@ -632,6 +748,10 @@ def run_horizon(
                     "hourly_revenue_USD": realized["delivered"][k] * raw_price[hour],
                     "hourly_revenue_metric": realized["delivered"][k] * actual_price[hour],
                     "year_end_soc_target_active_in_plan": bool(soc_targets),
+                    "annual_soc_control_active": float(realized["annual_soc_control_active"][k]),
+                    "annual_soc_lower_bound_mwh": float(realized["annual_soc_lower_bound_mwh"][k]),
+                    "annual_soc_upper_bound_mwh": float(realized["annual_soc_upper_bound_mwh"][k]),
+                    "annual_soc_target_mwh": float(realized["annual_soc_target_mwh"][k]),
                 }
             )
         current_soc = float(realized["storage"][-1])
@@ -652,10 +772,14 @@ def run_horizon(
     wind_only = wind_only_delivery(power, config)
     constant_100mw = constant_output_100mw_delivery(
         power,
+        pd.to_datetime(labels["datetime"]).reset_index(drop=True),
         config,
         initial_soc=initial_soc,
         min_soc_frac=min_soc_frac,
         max_soc_frac=max_soc_frac,
+        annual_target_soc_mwh=annual_target_soc_mwh,
+        final_target_soc_mwh=final_target_soc_mwh,
+        annual_soc_settlement_hours=annual_soc_settlement_hours,
         target_mw=100.0,
     )
     legacy_non_strategic = continuous_baseload(
@@ -684,7 +808,12 @@ def run_horizon(
     )
     annual_checks = annual_soc_qa(
         labels,
-        annual_target_soc_mwh if perfect_information else None,
+        annual_target_soc_mwh,
+    )
+    final_target_error = (
+        abs(float(labels["soc_end"].iloc[-1]) - float(final_target_soc_mwh))
+        if final_target_soc_mwh is not None
+        else 0.0
     )
     summary = {
         "method": "oracle"
@@ -742,7 +871,43 @@ def run_horizon(
         "solver_runtime_seconds": solver_runtime,
         **constraints,
         **annual_checks,
+        "final_soc_target_mwh": (
+            math.nan if final_target_soc_mwh is None else float(final_target_soc_mwh)
+        ),
+        "final_soc_target_abs_error": float(final_target_error),
+        "final_soc_target_violation_count": int(final_target_error > 1e-5),
     }
+    physical_residual_keys = (
+        "max_wind_only_violation",
+        "max_delivered_definition_violation",
+        "max_grid_violation",
+        "max_charge_limit_violation",
+        "max_discharge_limit_violation",
+        "max_available_energy_violation",
+        "max_soc_update_violation",
+        "max_soc_lower_violation",
+        "max_soc_upper_violation",
+    )
+    failed_physical_checks = {
+        key: summary[key]
+        for key in physical_residual_keys
+        if float(summary[key]) > 1e-5
+    }
+    if int(summary["curtailment_negative_count"]) > 0:
+        failed_physical_checks["curtailment_negative_count"] = summary[
+            "curtailment_negative_count"
+        ]
+    if (
+        summary["annual_soc_target_violation_count"]
+        or summary["final_soc_target_violation_count"]
+        or failed_physical_checks
+    ):
+        raise RuntimeError(
+            f"Oracle {horizon} h failed required physical/SoC QA: "
+            f"annual={summary['annual_soc_target_violation_count']}, "
+            f"final={summary['final_soc_target_violation_count']}, "
+            f"physical={failed_physical_checks}"
+        )
     return labels, summary
 
 
@@ -985,6 +1150,13 @@ def main():
         help="Optional oracle SoC target after each Dec. 31 23:00 hour. Omit for fully chronological carryover.",
     )
     parser.add_argument(
+        "--final-target-soc-mwh",
+        type=float,
+        default=None,
+        help="Optional required realized SoC after the final evaluated hour.",
+    )
+    parser.add_argument("--annual-soc-settlement-hours", type=int, default=720)
+    parser.add_argument(
         "--terminal-policy",
         choices=["equal-initial", "no-empty", "none"],
         default="equal-initial",
@@ -1200,6 +1372,8 @@ def main():
                 replanning_interval_hours=args.replanning_interval_hours,
                 terminal_policy=args.terminal_policy,
                 annual_target_soc_mwh=args.annual_target_soc_mwh,
+                final_target_soc_mwh=args.final_target_soc_mwh,
+                annual_soc_settlement_hours=args.annual_soc_settlement_hours,
             )
             labels.to_csv(
                 output_dir / f"forecast_dispatch_{horizon}h.csv", index=False
@@ -1229,6 +1403,8 @@ def main():
                 replanning_interval_hours=args.replanning_interval_hours,
                 terminal_policy=args.terminal_policy,
                 annual_target_soc_mwh=args.annual_target_soc_mwh,
+                final_target_soc_mwh=args.final_target_soc_mwh,
+                annual_soc_settlement_hours=args.annual_soc_settlement_hours,
             )
             labels.to_csv(
                 output_dir / f"oracle_dispatch_{horizon}h.csv", index=False

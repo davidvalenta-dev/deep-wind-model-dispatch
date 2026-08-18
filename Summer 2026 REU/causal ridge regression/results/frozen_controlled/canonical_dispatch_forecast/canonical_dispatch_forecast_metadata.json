@@ -1,0 +1,11 @@
+{
+  "forecast_name": "frozen_causal_direct_lead_ridge",
+  "forecast_sha256": "318cdac27903e562204f1c78701745dbddb55edd32dd25459d7c79287a62fc91",
+  "training_start": "1980-01-01 01:00:00",
+  "training_end": "2013-12-31 23:00:00",
+  "evaluation_start": "2014-01-01 00:00:00",
+  "evaluation_end": "2023-12-30 04:00:00",
+  "max_horizon_hours": 168,
+  "train_origin_stride": 24,
+  "controller_source": "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scenarios/code/run_uncertainty_aware_dispatch.py"
+}

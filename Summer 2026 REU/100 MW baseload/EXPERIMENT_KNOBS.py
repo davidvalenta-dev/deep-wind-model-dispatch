@@ -10,7 +10,8 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[1]
 
 # Where the rerun writes outputs. Change this if you want to keep multiple tests.
-OUTPUT_DIR = HERE / "results" / "current_run_from_knobs"
+OUTPUT_DIR = HERE / "results" / "frozen_controlled"
+RERUN_FROM_SOURCE = False
 
 # Full paper-period 100 MW baseload reference.
 # This is separate from the 2020 B6/canonical check above.
@@ -18,7 +19,7 @@ FULL_PERIOD_DATA = REPO_ROOT / "data" / "processed" / "dataset_1980-2023_withloa
 FULL_PERIOD_START = "2014-01-01 00:00:00"
 # Match the active Summer 2026 ladder window. The last week of 2023 is
 # excluded because the 168-hour planning horizon needs a complete future window.
-FULL_PERIOD_END = "2023-12-23 20:00:00"
+FULL_PERIOD_END = "2023-12-23 05:00:00"
 NORMALIZED_PRICE_TRAIN_END = "2014-01-01"
 PRICE_THRESHOLD = 1000.0
 
@@ -34,10 +35,4 @@ MIN_SOC_MWH = 200.0
 MAX_SOC_MWH = 1000.0
 INITIAL_SOC_MWH = 600.0
 YEAR_END_SOC_MWH = 600.0
-
-# Oracle horizons to test. Add 35 here if you want a 35-hour oracle benchmark.
-HORIZONS = [24, 48, 168]
-
-# Solver knobs.
-MIP_GAP = 1e-6
-TIME_LIMIT_SECONDS = None
+ANNUAL_SOC_SETTLEMENT_HOURS = 720

@@ -49,8 +49,8 @@ cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scena
 
 ## Step 4
 
-Run perfect-information oracle dispatch. The command prints daily-replan oracle
-results and the separate hourly-replan oracle reference.
+Run the controlled perfect-information Oracle horizon sweep. Every row executes
+one hour and replans hourly; only the perfect-information window changes.
 
 Command:
 

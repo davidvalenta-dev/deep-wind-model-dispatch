@@ -19,9 +19,19 @@ CAUSAL_ALPHA = 1e-6
 PYRON_RESULTS = REPO_ROOT / "power_model" / "evaluation" / "pyron_model_results.csv"
 
 # Where this rerun writes outputs.
-OUTPUT_DIR = HERE / "results" / "current_run_from_knobs"
+OUTPUT_DIR = HERE / "results" / "frozen_controlled"
 CAUSAL_OUTPUT_DIR = OUTPUT_DIR / "causal_lag_forecast_outputs"
 RMSE_OUTPUT = OUTPUT_DIR / "forecast_model_rmse_comparison.csv"
 
+# True rebuilds the forecasts from source. False reads the saved CSVs and
+# regenerates the terminal table/figures without retraining.
+RERUN_FROM_SOURCE = False
+
 # Set True only if you want to reuse the existing causal prediction CSV.
 SKIP_REBUILD = False
+
+# Exact multi-lead causal ridge used unchanged by every forecast-driven
+# dispatch experiment in Steps 2 and 3.
+DISPATCH_FORECAST_MAX_HORIZON_HOURS = 168
+DISPATCH_FORECAST_TRAIN_ORIGIN_STRIDE = 24
+DISPATCH_FORECAST_OUTPUT_DIR = OUTPUT_DIR / "canonical_dispatch_forecast"

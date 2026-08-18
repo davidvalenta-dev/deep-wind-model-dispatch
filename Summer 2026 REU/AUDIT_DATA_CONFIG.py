@@ -72,6 +72,7 @@ def audit_hourly(path: Path, case_group: str, case_name: str) -> dict[str, objec
             report[f"{label}_max_violation_mwh"] = max(max_under(low, SOC_MIN), max_over(high, SOC_MAX))
     if soc_end_col is not None and len(df):
         report["final_soc_mwh"] = float(pd.to_numeric(df[soc_end_col], errors="coerce").iloc[-1])
+        report["final_soc_target_violation_mwh"] = abs(report["final_soc_mwh"] - 600.0)
 
     for col_name, label, limit in [
         (charge_col, "charge", POWER_LIMIT),
@@ -109,31 +110,26 @@ def audit_hourly(path: Path, case_group: str, case_name: str) -> dict[str, objec
 def collect_files() -> list[tuple[Path, str, str]]:
     files: list[tuple[Path, str, str]] = []
     files.append((
-        HERE / "100 MW baseload" / "results" / "current_run_from_knobs" / "constant_output_baseload_100mw_2014_2023_hourly.csv",
+        HERE / "100 MW baseload" / "results" / "frozen_controlled" / "constant_output_baseload_100mw_2014_2023_hourly.csv",
         "Step 0",
         "100 MW benchmark 2014-2023",
     ))
-    files.append((
-        HERE / "100 MW baseload" / "results" / "current_run_from_knobs" / "constant_output_baseload_100mw_2020_hourly.csv",
-        "Step 0",
-        "100 MW benchmark 2020",
-    ))
     for horizon in [24, 48, 72, 168]:
         files.append((
-            HERE / "rolling horizon" / "results" / "current_run_from_knobs" / f"forecast_dispatch_{horizon}h.csv",
+            HERE
+            / "rolling horizon"
+            / "results"
+            / "controlled_hourly_nowcast_from_knobs"
+            / f"horizon_{horizon}h"
+            / "single_forecast_recourse_nowcast_gated_labels.csv",
             "Step 2",
             f"deterministic forecast-driven RH MILP {horizon} h",
         ))
         files.append((
-            HERE / "oracle upper bound" / "results" / "current_run_from_knobs" / f"oracle_dispatch_{horizon}h.csv",
-            "Step 4 daily",
-            f"daily-replan oracle {horizon} h",
+            HERE / "oracle upper bound" / "results" / "frozen_controlled" / f"oracle_dispatch_{horizon}h.csv",
+            "Step 4 hourly",
+            f"hourly-replan oracle {horizon} h",
         ))
-    files.append((
-        HERE / "oracle upper bound" / "results" / "hourly_168h_oracle_ceiling" / "oracle_dispatch_168h.csv",
-        "Step 4 hourly",
-        "hourly-replan oracle 168 h reference",
-    ))
     for name in [
         "single_forecast_recourse_nowcast_gated",
         "three_scenario_expected_nowcast_gated",
@@ -142,7 +138,7 @@ def collect_files() -> list[tuple[Path, str, str]]:
         "ten_scenario_expected_nowcast_gated",
     ]:
         files.append((
-            HERE / "different scenarios" / "results" / "current_run_from_knobs" / f"{name}_labels.csv",
+            HERE / "different scenarios" / "results" / "frozen_controlled" / f"{name}_labels.csv",
             "Step 3",
             name,
         ))

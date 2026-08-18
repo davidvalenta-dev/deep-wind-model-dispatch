@@ -1,4 +1,0 @@
-case_id,case_name,planning_horizon_hours,revenue_usd,revenue_gain_vs_100mw_baseload_pct,COVE,COVE_reduction_vs_100mw_baseload_pct,qa_total_violation_count
-oracle_rh_milp_24h_2020,24-hour Perfect-Information Oracle Rolling-Horizon MILP,24,13361449.44192458,46.96284491205223,3.848139771323638,31.955590503270713,0
-oracle_rh_milp_48h_2020,48-hour Perfect-Information Oracle Rolling-Horizon MILP,48,13392056.97033224,47.299497718326556,3.8393448529904526,32.11110591074452,0
-oracle_rh_milp_168h_2020,168-hour Perfect-Information Oracle Rolling-Horizon MILP,168,13398119.702547181,47.366181829067706,3.8376075256459248,32.14182605613577,0

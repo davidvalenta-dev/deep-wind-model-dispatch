@@ -1,4 +1,7 @@
-"""One place to change Step 2 rolling-horizon dispatch settings.
+"""One place to change the controlled Step 2 horizon experiment.
+
+Step 2 and the Step 3 one-forecast case intentionally use the same canonical
+controller.  The only Step 2 treatment variable is planning horizon.
 
 Edit this file, then run:
     ../../venv/bin/python RUN_2_ROLLING_HORIZON.py
@@ -7,45 +10,54 @@ Edit this file, then run:
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[1]
 
-# Where the full Gurobi rerun writes summaries and hourly CSVs.
-OUTPUT_DIR = HERE / "results" / "current_run_from_knobs"
+# Each horizon receives its own summary and full hourly CSV under this folder.
+OUTPUT_DIR = HERE / "results" / "controlled_hourly_nowcast_from_knobs"
 
-# False means the RUN script prints the saved current 100 MW / 10-hour CAES results
-# already saved in OUTPUT_DIR. Set True only if you intentionally want to rerun Gurobi.
-RERUN_FROM_SOURCE = True
+# Set True to run Gurobi. False reads a previously completed controlled run.
+RERUN_FROM_SOURCE = False
+# Resume helper: horizons listed here are read from their already completed
+# source rerun while the remaining horizons are rebuilt.
+REUSE_COMPLETED_HORIZONS = []
 
-# Data and model config.
-DATA = REPO_ROOT / "data" / "processed" / "dataset_1980-2023_withloads_fix.csv"
-CONFIG = REPO_ROOT / "strategy_model" / "test" / "run_016" / "config_run_016.yaml"
-TRAIN_END = "2014-01-01"
-TEST_END = None
+# Treatment variable: how far Gurobi plans ahead. The 48 h row is configured
+# to be exactly the Step 3 one-forecast controller.
+HORIZONS = [24, 48, 72, 168]
 
-# Forecast model knobs.
-ALPHA = 10.0
-TRAIN_ORIGIN_STRIDE = 24
+# Common forecast/test support. Keeping this at the longest tested horizon
+# gives every row the same evaluation timestamps. Step 3 uses these values too.
+FORECAST_MODEL_MAX_HORIZON_HOURS = 168
+EVALUATION_CUTOFF_HORIZON_HOURS = 168
 
-# Storage setup Chris asked to keep common.
+# Controlled execution protocol shared with Step 3.
+EXECUTION_STEP_HOURS = 1
+REPLANNING_INTERVAL_HOURS = 1
+NOWCAST_FIRST_HOUR = True
+DIRECT_RESERVE_MW = 75.0
+GATE_MARGIN = 0.0
+APPLY_GATE_TO_SINGLE_FORECAST = True
+FALLBACK_TARGET_MW = 85.67800432903339
+
+# Common 100 MW / 10 h CAES configuration.
 STORAGE_POWER_MW = 100.0
 STORAGE_DURATION_H = 10.0
+RTE = 0.55
+DOD = 0.8
 GRID_CAP_MW = 249.0
-MIN_SOC_FRAC = 0.2
-MAX_SOC_FRAC = 1.0
-INITIAL_SOC_MWH = 600.0
-ANNUAL_TARGET_SOC_MWH = None
+INITIAL_SOC_MWH = None  # None gives the 600 MWh midpoint of 200-1,000 MWh.
+# Chronological SoC carries between hours; there is never a reset. The physical
+# annual corridor returns SoC to 600 MWh after each completed evaluation year.
+ANNUAL_TARGET_SOC_MWH = 600.0
+FINAL_TARGET_SOC_MWH = 600.0
+ANNUAL_SOC_SETTLEMENT_HOURS = 720
 
-# Dispatch knobs. Add 35 here if you want to test a 35-hour horizon.
-HORIZONS = [24, 48, 72, 168]
-EXECUTION_STEP_HOURS = 24
-REPLANNING_INTERVAL_HOURS = 24
-TERMINAL_POLICY = "equal-initial"
-DIRECT_RESERVE_MW = 75.0
-MIP_GAP = 0.0
+# Same causal ridge training and residual settings as Step 3.
+TRAIN_ORIGIN_STRIDE = 24
+RESIDUAL_ORIGIN_STRIDE = 1
+CALIBRATION_MODE = "in_sample_residual"
+FORECAST_TRAIN_END = "2013-01-01"
+CALIBRATION_END = "2014-01-01"
 
-# Legacy non-strategic storage-baseload setting. The primary comparison is now
-# the 100 MW constant-output benchmark; wind-only stays as secondary reference.
-PRIMARY_BASELINE_STORAGE_DURATION_H = 10.0
-
-# Keep True if you also want oracle rows printed as context in the same rerun.
-RUN_ORACLE_CONTEXT = False
+# Leave None for the complete test period. Use a small value only for a quick
+# wiring test; Step 2 and Step 3 must use the same value for direct comparison.
+MAX_ORIGINS = None

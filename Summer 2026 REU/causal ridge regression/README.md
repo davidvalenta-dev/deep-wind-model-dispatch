@@ -23,7 +23,7 @@ The script compares forecast methods using RMSE, MAE, and bias. Lower RMSE means
 
 That one command rebuilds the causal lag/ridge forecast from
 `EXPERIMENT_KNOBS.py`, recomputes the RMSE comparison table, and regenerates
-the figures. Fresh rerun outputs go to `results/current_run_from_knobs/` by
+the figures. Frozen rerun outputs go to `results/frozen_controlled/` by
 default.
 
 Main result:

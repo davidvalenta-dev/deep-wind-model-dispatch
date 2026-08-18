@@ -1,110 +1,81 @@
-# Deep Wind Model Dispatch
+# Forecast-Aware Wind-Storage Dispatch
 
-This repository contains Summer 2026 REU work on forecast-aware dispatch for a
-hybrid wind farm with compressed-air-energy-storage-like constraints. The clean
-paper-facing reproduction package is organized here:
+This repository contains the frozen Summer 2026 REU experiment for causal
+wind-power forecasting and constrained rolling-horizon dispatch. The
+paper-facing package is [`Summer 2026 REU/`](Summer%202026%20REU/).
 
-[`Summer 2026 REU/`](Summer%202026%20REU/)
+## Frozen Experiment
 
-The project is now organized around one primary benchmark:
+All dispatch cases use one common configuration:
 
-```text
-100-MW Constant-Output Baseload Benchmark
-```
-
-Wind-only/no-storage output is still reported, but only as secondary reference
-information. The 100 MW benchmark uses the same 100 MW / 10 h / 1,000 MWh CAES
-configuration as the dispatch experiments.
-
-## Reproduction Ladder
-
-Run one command in each folder:
-
-| Step | Folder | What it proves |
-| ---: | --- | --- |
-| 0 | `Summer 2026 REU/100 MW baseload` | Builds the 100 MW benchmark and QA checks |
-| 1 | `Summer 2026 REU/causal ridge regression` | Chooses the best power forecast by RMSE |
-| 2 | `Summer 2026 REU/rolling horizon` | Tests deterministic Gurobi planning horizons |
-| 3 | `Summer 2026 REU/different scenarios` | Tests 1/3/5/7/10 forecast scenarios |
-| 4 | `Summer 2026 REU/oracle upper bound` | Reports daily and hourly perfect-information oracle references |
-
-Every folder has:
-
-```text
-EXPERIMENT_KNOBS.py
-RUN_*.py
-code/
-results/
-figures/
-```
-
-Change the knobs file, run the `RUN_*.py` command, then read
-`results/current_run_from_knobs/`.
-
-## Current Paper-Facing Results
-
-| Result | Current value |
+| Setting | Frozen value |
 | --- | ---: |
-| Best forecast model | causal lag/ridge forecast |
-| Best forecast RMSE | 21.24 MW |
-| Best deterministic rolling-horizon case | 48 h |
-| Deterministic COVE reduction vs 100 MW benchmark | 20.63% |
-| Best scenario case | 3 scenarios |
-| Scenario COVE reduction vs 100 MW benchmark | 40.18% |
-| Scenario revenue gain vs 100 MW benchmark | 67.16% |
-| Daily-replan oracle reference | 168 h, 40.87% COVE reduction |
-| Hourly-replan oracle reference | 168 h, 40.85% COVE reduction |
-
-## Step 2 48 h vs Step 3 1 Forecast
-
-These are intentionally different rows, so their percentages should not match.
-
-| Value | Source | Meaning |
-| ---: | --- | --- |
-| 20.63% | `Summer 2026 REU/rolling horizon/results/current_run_from_knobs/forecast_dispatch_summary.csv` | Step 2 deterministic horizon sweep: one causal forecast path, 48 h planning horizon, 24 h execution/replanning, and the 75 MW direct-reserve policy |
-| 37.23% | `Summer 2026 REU/different scenarios/results/current_run_from_knobs/uncertainty_aware_summary.csv` | Step 3 one-forecast reference inside the scenario runner: current-hour nowcast plus causal ridge future, nowcast-gated recourse, and first-action execution |
-
-Use Step 2 to compare planning horizons. Use Step 3 to compare one forecast
-against 3, 5, 7, and 10 scenarios.
-
-## Common Storage Setup
-
-| Setting | Value |
-| --- | ---: |
-| Storage power | 100 MW |
-| Duration | 10 h |
-| Capacity | 1,000 MWh |
-| SoC bounds | 200-1,000 MWh |
-| Initial SoC | 600 MWh |
-| RTE | 55%, discharge-side |
+| Evaluation period | 2014-01-01 00:00 through 2023-12-23 05:00 |
+| Evaluated hours | 87,417 |
+| Storage | 100 MW / 10 h CAES-equivalent system |
+| Capacity and SoC bounds | 1,000 MWh; 200-1,000 MWh |
+| Initial, completed year-end, and final SoC | 600 MWh |
+| Efficiency | 0.55, applied on discharge |
 | Grid export cap | 249 MW |
 | Grid charging | Not allowed |
+| Realized execution and replanning | 1 hour / 1 hour |
+| Primary benchmark | 100-MW Constant-Output Baseload Benchmark |
 
-## Main Commands
+The SoC is chronological. Year-end targets are reached physically; the code
+does not reset the battery or create energy between years.
+
+## Step 0-4 Ladder
+
+| Step | Experiment | Frozen conclusion |
+| ---: | --- | --- |
+| 0 | 100 MW constant-output benchmark | Revenue metric 5,962,774.41; COVE 8.622953 |
+| 1 | Forecast comparison | Causal lag/ridge wins with 21.24 MW RMSE |
+| 2 | Deterministic horizon sweep | 168 h wins with 35.37% COVE reduction |
+| 3 | Scenario-count sweep | One forecast wins; best multi-scenario case is 10 futures at 34.60% |
+| 4 | Rolling-window Oracle | 168 h ceiling gives 40.84% COVE reduction |
+
+The Step 2 168-hour result and Step 3 one-forecast result are exactly equal.
+That controlled equality proves the scenario experiment changes scenario count
+without silently changing the forecast, controller, or execution protocol.
+
+## Run
+
+Each step has one runner and one `EXPERIMENT_KNOBS.py` file:
 
 ```bash
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/100 MW baseload"
+cd "Summer 2026 REU/100 MW baseload"
 ../../venv/bin/python RUN_0_100MW_BASELOAD.py
 
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/causal ridge regression"
+cd "../causal ridge regression"
 ../../venv/bin/python RUN_1_FORECAST_RMSE.py
 
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/rolling horizon"
+cd "../rolling horizon"
 ../../venv/bin/python RUN_2_ROLLING_HORIZON.py
 
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scenarios"
+cd "../different scenarios"
 ../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
 
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
+cd "../oracle upper bound"
 ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
 ```
 
-Run the audit:
+The committed knobs already set `RERUN_FROM_SOURCE = False`, so these commands
+display the frozen CSVs and regenerate every current figure without solving the
+experiments again. Set it to `True` only for an intentional full reproduction.
+
+## Verification
 
 ```bash
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU"
+./venv/bin/python "Summer 2026 REU/common/validate_controlled_ladder.py"
+cd "Summer 2026 REU"
 ../venv/bin/python AUDIT_DATA_CONFIG.py
 ```
 
-Current audit result: `16/16` active hourly CSV files pass the common 100 MW /
-10 h CAES checks.
+The final validation status is `PASS`: 14/14 controlled hourly files satisfy
+the common storage configuration, every dispatch row has zero physical QA
+violations, and all annual/final SoC checks pass at 600 MWh.
+
+Canonical values and source files are listed in
+[`PAPER_RESULT_FILE_MAP.md`](Summer%202026%20REU/PAPER_RESULT_FILE_MAP.md).
+Exact commands are listed in
+[`RUN_COMMANDS.md`](Summer%202026%20REU/RUN_COMMANDS.md).

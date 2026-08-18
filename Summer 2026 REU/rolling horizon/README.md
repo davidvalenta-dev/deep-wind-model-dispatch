@@ -1,70 +1,79 @@
-# Rolling Horizon
+# Step 2: Deterministic Rolling Horizon
 
-This folder answers:
+This controlled experiment asks one question:
 
-> Once the forecast is selected, how far should Gurobi look ahead?
+> With one frozen causal-ridge forecast and one fixed controller, how far ahead should Gurobi plan?
 
-Primary benchmark: **100-MW Constant-Output Baseload Benchmark**.
-Secondary reference: wind-only/no-storage.
-
-Run:
+## Run
 
 ```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/rolling horizon"
 ../../venv/bin/python RUN_2_ROLLING_HORIZON.py
 ```
 
-Change settings in:
+Edit `EXPERIMENT_KNOBS.py` to change a horizon or storage setting. The frozen
+default is `RERUN_FROM_SOURCE = False`, which immediately displays the committed
+results and rebuilds the figures. Set it to `True` only for an intentional full
+source rerun.
 
-```text
-EXPERIMENT_KNOBS.py
-```
+## What Is Held Fixed
 
-Current common setup:
+- 2014-01-01 through 2023-12-23 evaluation period: 87,417 hours.
+- Causal-ridge center forecast trained before the test period.
+- One-hour execution and one-hour replanning.
+- Current-hour wind and price nowcast.
+- Same nowcast-gated realized recourse used by Step 3.
+- 75 MW direct-wind reserve.
+- 100 MW / 10 h CAES, 1,000 MWh capacity, 200-1,000 MWh SoC.
+- Initial SoC 600 MWh; every completed evaluation year and the final row end at 600 MWh.
+- RTE 0.55 on discharge, 249 MW grid cap, wind-only charging, no grid charging.
 
-```text
-100 MW storage power
-10 h duration
-1,000 MWh capacity
-200-1,000 MWh SoC bounds
-600 MWh initial SoC
-249 MW grid export cap
-75 MW direct reserve
-```
+Only the planning horizon changes: 24, 48, 72, or 168 hours. Gurobi solves the
+entire window, executes the first hour, observes the new current state, and
+solves again.
 
-Current result versus the 100 MW benchmark:
+## Controlled Results
 
-| Horizon | COVE | COVE reduction | Revenue metric | Raw revenue gain |
+Primary benchmark: the 100-MW Constant-Output Baseload Benchmark, revenue
+metric 5,962,774.41 and COVE 8.622953.
+
+| Horizon | Revenue metric | COVE | COVE reduction vs 100 MW | Final SoC |
 | ---: | ---: | ---: | ---: | ---: |
-| 24 h | 6.966281 | 18.95% | 7,380,799.56 | 22.16% |
-| 48 h | 6.822045 | 20.63% | 7,536,849.56 | 26.08% |
-| 72 h | 6.830033 | 20.54% | 7,528,034.19 | 25.80% |
-| 168 h | 6.847708 | 20.33% | 7,508,603.24 | 25.35% |
+| 24 h | 8,853,470.17 | 5.807522 | 32.65% | 600 MWh |
+| 48 h | 9,055,868.37 | 5.677724 | 34.16% | 600 MWh |
+| 72 h | 9,118,656.03 | 5.638630 | 34.61% | 600 MWh |
+| 168 h | 9,226,453.36 | 5.572751 | 35.37% | 600 MWh |
 
-Best deterministic case: **48 h**.
+The 168-hour horizon is the controlled winner. Longer look-ahead helps this
+controller identify more storage opportunities, while hourly replanning limits
+the damage from later forecast errors. The improvement from 72 to 168 hours is
+small, so the result is a diminishing-return finding, not a claim that longer
+is always better.
 
-Important: this `20.63%` value is the Step 2 deterministic horizon-sweep
-result. It is not the same as the Step 3 `1 forecast` scenario-runner
-reference, which uses current-hour nowcast, nowcast-gated recourse, and
-first-action execution inside the scenario comparison.
+Wind-only/no-storage is a secondary reference. It uses a different cost
+numerator, so revenue and COVE comparisons against wind-only must be interpreted
+separately from the primary same-storage benchmark.
 
-Wind-only is printed at the bottom of the command output only as secondary
-reference.
-
-Important files:
-
-| File | Purpose |
-| --- | --- |
-| `RUN_2_ROLLING_HORIZON.py` | Main Step 2 command |
-| `EXPERIMENT_KNOBS.py` | One place to change horizons/storage/output settings |
-| `code/forecast_backtest_rolling_horizons.py` | Builds forecasts, calls Gurobi, writes hourly CSVs |
-| `code/rolling_horizon_gurobi_dispatch.py` | Lower-level Gurobi/MILP dispatch engine |
-| `results/current_run_from_knobs/forecast_dispatch_summary.csv` | Current summary |
-| `results/current_run_from_knobs/forecast_dispatch_48h.csv` | Best deterministic hourly CSV |
-
-Figures:
+## Outputs
 
 ```text
-figures/step2_causal_horizon_improvement.png
-figures/step2_causal_horizon_cove.png
-figures/step2_revenue_by_horizon.png
+results/controlled_hourly_nowcast_from_knobs/controlled_single_forecast_horizon_summary.csv
+results/controlled_hourly_nowcast_from_knobs/horizon_24h/
+results/controlled_hourly_nowcast_from_knobs/horizon_48h/
+results/controlled_hourly_nowcast_from_knobs/horizon_72h/
+results/controlled_hourly_nowcast_from_knobs/horizon_168h/
+results/full_hourly_outputs/
 ```
+
+Each horizon folder contains the complete hourly dispatch CSV, summary, and
+metadata. Step 3 copies the winning 168-hour one-forecast row directly from
+this controlled result, then changes only scenario count.
+
+## Code Map
+
+| File | Role |
+| --- | --- |
+| `RUN_2_ROLLING_HORIZON.py` | Front door: loops over horizons, combines rows, checks Step 3 equality, and draws figures. |
+| `EXPERIMENT_KNOBS.py` | Frozen settings and user-editable experiment knobs. |
+| `../different scenarios/code/run_uncertainty_aware_dispatch.py` | Canonical Gurobi controller shared with Step 3. |
+| `results/.../single_forecast_recourse_nowcast_gated_labels.csv` | Complete realized hourly trajectory for a horizon. |

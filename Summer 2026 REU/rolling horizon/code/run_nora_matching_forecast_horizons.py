@@ -42,8 +42,9 @@ GRID_CAP = 249.0
 FCR = 0.065
 WF_CAPEX = 1968.0
 WF_OPEX = 43.0
-CAES_CAPEX = 2044.0
-CAES_OPEX = 28.10
+# Canonical 100 MW / 10 h CAES costs used by Step 0 and Step 4.
+CAES_CAPEX = 1125.33
+CAES_OPEX = 15.43
 
 
 @dataclass

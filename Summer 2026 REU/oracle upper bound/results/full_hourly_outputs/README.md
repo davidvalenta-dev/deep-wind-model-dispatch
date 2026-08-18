@@ -10,9 +10,10 @@ oracle dispatch check.
 | `oracle_dispatch_72h.csv` | Oracle dispatch with 72 hours of perfect information. |
 | `oracle_dispatch_168h.csv` | Oracle dispatch with 168 hours of perfect information. |
 
-To regenerate these full hourly CSVs:
+To regenerate these full hourly CSVs with the frozen controller protocol:
 
 ```bash
 cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
-../../venv/bin/python code/forecast_backtest_rolling_horizons.py --oracle-only --horizons 24 48 72 168 --out-dir "results/full_rebuild_oracle_2014_2023"
+# Set RERUN_FROM_SOURCE = True in EXPERIMENT_KNOBS.py, then run:
+../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
 ```

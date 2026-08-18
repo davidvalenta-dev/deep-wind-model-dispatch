@@ -1,0 +1,24 @@
+{
+  "data": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/dataset_1980-2023_withloads_fix.csv",
+  "start": "2014-01-01 00:00:00",
+  "end": "2023-12-23 05:00:00",
+  "storage_config": {
+    "storage_power_mw": 100.0,
+    "storage_duration_h": 10.0,
+    "rte": 0.55,
+    "grid_cap_mw": 249.0,
+    "target_output_mw": 100.0,
+    "min_soc_mwh": 200.0,
+    "max_soc_mwh": 1000.0,
+    "initial_soc_mwh": 600.0,
+    "price_threshold": 1000.0,
+    "normalized_price_train_end": "2014-01-01",
+    "annual_target_soc_mwh": 600.0,
+    "final_target_soc_mwh": 600.0,
+    "annual_soc_settlement_hours": 720
+  },
+  "outputs": {
+    "hourly": "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/100 MW baseload/results/frozen_controlled/constant_output_baseload_100mw_2014_2023_hourly.csv",
+    "summary": "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/100 MW baseload/results/frozen_controlled/constant_output_baseload_100mw_2014_2023_summary.csv"
+  }
+}

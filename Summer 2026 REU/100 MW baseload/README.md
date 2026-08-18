@@ -1,190 +1,85 @@
-# 100 MW Baseload
+# Step 0: 100-MW Constant-Output Baseload Benchmark
 
-This folder answers the benchmark question Chris asked for:
-
-> What happens if the wind-storage system follows a simple rule that tries to
-> deliver 100 MW every hour?
-
-This is not a Gurobi revenue optimizer. It is a rule-based benchmark.
+This is the primary benchmark for the controlled Step 0-4 ladder. It is a
+simple rule-based wind-storage controller, not a Gurobi revenue optimizer.
 
 ## Run
 
-From this folder:
-
 ```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/100 MW baseload"
 ../../venv/bin/python RUN_0_100MW_BASELOAD.py
 ```
 
-Before running, change all experiment settings in:
+Change settings in `EXPERIMENT_KNOBS.py`.
 
-```text
-EXPERIMENT_KNOBS.py
-```
+## Operating Rule
 
-That file controls storage power, storage duration, RTE, target output, grid
-cap, initial SoC, min/max SoC, year-end SoC, and oracle horizons. For example,
-to test a 35-hour oracle benchmark, set `HORIZONS = [35]`.
+The system tries to deliver 100 MW every hour.
 
-The script prints:
+- If wind is at least 100 MW, send 100 MW directly, charge storage from extra wind, and curtail what cannot be charged.
+- If wind is below 100 MW, send all wind directly and discharge storage toward the 100 MW target.
+- Price is not used to choose the action. It is used only afterward to score realized value.
 
-- the 100-MW constant-output baseload result;
-- the 2014-2023 100-MW constant-output baseload reference for the paper-period ladder;
-- the QA violation count;
-- the 24 h, 48 h, and 168 h oracle cases compared against this 100-MW baseload;
-- the B6 same-year causal/oracle runs compared against this 100-MW baseload by raw realized revenue;
-- aligned 2014-2023 comparison CSVs for rolling horizon, scenarios, and oracle;
-- updated figures in `figures/`;
-- a comparison CSV in the configured output folder.
-
-The full hourly CSVs are in:
-
-```text
-results/
-```
-
-## Rule
-
-Storage configuration:
+## Frozen Configuration
 
 | Parameter | Value |
 | --- | ---: |
-| Target output | 100 MW |
-| Storage power | 100 MW |
-| Storage duration | 10 h |
-| Storage capacity | 1000 MWh |
-| Minimum SoC | 200 MWh |
-| Maximum SoC | 1000 MWh |
+| Storage power | 100 MW charge / 100 MW discharge |
+| Storage duration / capacity | 10 h / 1,000 MWh |
+| SoC bounds | 200-1,000 MWh |
 | Initial SoC | 600 MWh |
-| RTE | 55%, discharge-side |
+| Annual and final SoC target | 600 MWh |
+| Annual target corridor | Last 720 hours of each completed year |
+| RTE | 0.55, applied on discharge |
 | Grid export cap | 249 MW |
-| Grid charging | no |
+| Grid charging | Not allowed |
 
-If actual wind is above 100 MW:
+The controller remains chronological. It does not reset SoC at year boundaries;
+it physically schedules charge/discharge so the realized year-end state reaches
+600 MWh.
 
-1. deliver 100 MW directly;
-2. charge storage with extra wind if possible;
-3. curtail the rest.
+## Controlled Full-Period Result
 
-If actual wind is below 100 MW:
+From
+`results/frozen_controlled/constant_output_baseload_100mw_2014_2023_summary.csv`:
 
-1. deliver all available wind;
-2. discharge storage to make up the gap if possible;
-3. record any remaining output shortfall.
-
-The final SoC is reported but not forced back to 600 MWh.
-
-## Main Canonical 2020 Result
-
-From `results/canonical_2020_summary.csv`:
-
-```text
-100-MW baseload revenue: $9,091,719.37
-100-MW baseload COVE:    5.655336
-Final SoC:               1000.00 MWh
-QA violations:           0
-```
-
-## Main 2014-2023 Paper-Period 100 MW Baseload
-
-This folder now also builds the same 100 MW rule over the longer paper-period
-data so the rolling-horizon, scenario, and oracle folders can be compared
-against the same constant-output storage rule.
-
-From `results/constant_output_baseload_100mw_2014_2023_summary.csv`:
-
-```text
-Period:                    2014-01-01 00:00:00 to 2023-12-23 20:00:00
-Hours:                     87,432
-Raw revenue:               $211,515,621.83
-Normalized revenue metric: 5,981,942.95
-Final SoC:                 980.22 MWh
-```
-
-This period intentionally matches the active ladder outputs. The final partial
-week of 2023 is excluded because the 168-hour rolling-horizon cases need a
-complete future window for a fair comparison.
-
-The hourly file is:
-
-```text
-results/constant_output_baseload_100mw_2014_2023_hourly.csv
-```
-
-There are also aligned comparison files:
-
-| File | What it compares |
-| --- | --- |
-| `results/comparison_rolling_horizon_vs_100mw_baseload.csv` | causal ridge + rolling-horizon Gurobi against the 100 MW rule |
-| `results/comparison_scenarios_vs_100mw_baseload.csv` | single forecast and scenario dispatch against the 100 MW rule |
-| `results/comparison_oracle_vs_100mw_baseload.csv` | perfect-information oracle against the 100 MW rule |
-
-Important: the rolling-horizon/oracle comparison uses the repo's normalized
-price metric, because that is how those folders score their runs. The scenario
-comparison uses raw LMP revenue, because the scenario folder reports raw
-dispatch revenue. The comparison CSVs label this with
-`comparison_price_mode`.
-
-## Fair Comparisons In This Folder
-
-This folder compares only cases that share the same canonical setup:
-
-- 2020 Pyron wind;
-- raw realized RTM LMP;
-- 100 MW / 10 h CAES;
-- SoC bounds of 200 to 1000 MWh;
-- initial SoC of 600 MWh;
-- 249 MW grid export cap;
-- no grid charging;
-- discharge-side RTE of 0.55.
-
-The fair comparison cases here are:
-
-| Case | What it means |
-| --- | --- |
-| 100-MW baseload | Rule tries to deliver 100 MW without price optimization |
-| 24 h oracle | Gurobi sees the next 24 hours of actual wind and actual price |
-| 48 h oracle | Gurobi sees the next 48 hours of actual wind and actual price |
-| 168 h oracle | Gurobi sees the next 168 hours of actual wind and actual price |
-
-This folder also includes a B6 revenue-only comparison against the same
-100-MW baseload. B6 uses the same 2020 raw realized LMP year and has zero QA
-violations, but it was a separate verification package with its own annual SoC
-rule, so it should be discussed as a same-year raw-revenue check rather than
-merged directly into the long paper ladder.
-
-| B6 case | Revenue vs 100-MW baseload |
+| Field | Value |
 | --- | ---: |
-| A causal, 100 MW / 6 h | -10.01% |
-| A oracle, 100 MW / 6 h | +42.19% |
-| B causal, 200 MW / 3 h | -9.84% |
-| B oracle, 200 MW / 3 h | +51.90% |
-| C causal, 100 MW / 10 h | -7.62% |
-| C oracle, 100 MW / 10 h | +47.36% |
+| Evaluation period | 2014-01-01 00:00 to 2023-12-23 05:00 |
+| Hours | 87,417 |
+| Raw realized revenue | $210,880,185.44 |
+| Normalized price-weighted revenue metric | 5,962,774.41 |
+| COVE index | 8.622953 |
+| Initial / final SoC | 600 / 600 MWh |
+| Minimum / maximum SoC | 200 / 1,000 MWh |
+| Completed year-end targets | 9 |
+| Annual target violations | 0 |
+| Physical QA violations | 0 |
 
-The long-period comparison files align each method to the matching timestamp
-range before calculating the 100 MW baseload reference value.
+The COVE numerator is the frozen annualized wind-plus-100 MW CAES cost of
+$51,416,725. All Step 2-4 same-storage COVE values use this same numerator.
 
-## Files
+## Outputs
 
-| File | Purpose |
-| --- | --- |
-| `RUN_0_100MW_BASELOAD.py` | Main Step 0 command. |
-| `code/canonical_benchmark_oracle_runner.py` | Full rebuild runner. It can change horizons, storage power, duration, RTE, target output, grid cap, and SoC values from the terminal. |
-| `results/constant_output_baseload_100mw_2020_hourly.csv` | Hourly 100-MW baseload output. |
-| `results/full_hourly_outputs/` | Full hourly baseload and oracle output CSVs. |
-| `results/canonical_2020_summary.csv` | Summary for baseload and oracle cases. |
-| `results/canonical_2020_QA_report.csv` | QA checks for baseload and oracle cases. |
-| `results/oracle_vs_100mw_baseload_comparison.csv` | Generated comparison against 100-MW baseload. |
-| `results/b6_2020_vs_100mw_baseload_revenue_comparison.csv` | B6 A/B/C causal and oracle raw-revenue comparison against 100-MW baseload. |
-| `results/constant_output_baseload_100mw_2014_2023_hourly.csv` | Full hourly 2014-2023 100 MW baseload output. |
-| `results/constant_output_baseload_100mw_2014_2023_summary.csv` | Summary for the long-period 100 MW baseload. |
-| `results/comparison_rolling_horizon_vs_100mw_baseload.csv` | Long-period rolling-horizon comparison against 100 MW baseload. |
-| `results/comparison_scenarios_vs_100mw_baseload.csv` | Long-period scenario comparison against 100 MW baseload. |
-| `results/comparison_oracle_vs_100mw_baseload.csv` | Long-period oracle comparison against 100 MW baseload. |
-
-Example custom reruns:
-
-```bash
-../../venv/bin/python code/canonical_benchmark_oracle_runner.py --horizons 248 --out "results/test_248h"
-../../venv/bin/python code/canonical_benchmark_oracle_runner.py --storage-power-mw 200 --storage-duration-h 5 --target-output-mw 100 --horizons 48 --out "results/test_200mw_5h"
+```text
+results/frozen_controlled/constant_output_baseload_100mw_2014_2023_hourly.csv
+results/frozen_controlled/constant_output_baseload_100mw_2014_2023_summary.csv
+results/frozen_controlled/constant_output_baseload_100mw_2014_2023_metadata.json
 ```
+
+The hourly CSV records direct wind, charge, discharge, delivered power,
+curtailment, shortfall, SoC before/after, both price measures, both revenue
+measures, and annual-target control fields for every evaluated hour.
+
+## Code Map
+
+| File | Role |
+| --- | --- |
+| `RUN_0_100MW_BASELOAD.py` | Front door: runs or displays the benchmark and prints QA. |
+| `EXPERIMENT_KNOBS.py` | User-editable storage, period, target, and output settings. |
+| `code/build_100mw_baseload_reference.py` | Applies the chronological 100 MW operating rule and writes full-period outputs. |
+| `../common/annual_soc.py` | Builds feasible target corridors without resetting or creating energy. |
+| `../common/metrics.py` | One canonical annualized-cost and COVE definition. |
+
+Wind-only/no-storage remains a secondary reference in Steps 2-4. It is not the
+primary same-storage benchmark.

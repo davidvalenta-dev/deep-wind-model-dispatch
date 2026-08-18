@@ -42,6 +42,12 @@ COMPARISON_100MW_FILE = (
     / "results"
     / "comparison_scenarios_vs_100mw_baseload.csv"
 )
+CONTROLLED_STEP2_RESULTS = (
+    HERE.parent
+    / "rolling horizon"
+    / "results"
+    / "controlled_hourly_nowcast_from_knobs"
+)
 
 FCR = 0.065
 WF_CAPEX = 1968.0
@@ -58,6 +64,68 @@ def load_rows(path: Path) -> list[dict[str, str]]:
         raise FileNotFoundError(f"Missing required result file: {path}")
     with path.open(newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def selected_horizon() -> int:
+    summary = CONTROLLED_STEP2_RESULTS / "controlled_single_forecast_horizon_summary.csv"
+    if not getattr(knobs, "USE_BEST_STEP2_HORIZON", False) or not summary.exists():
+        return int(knobs.HORIZON_HOURS)
+    rows = load_rows(summary)
+    best = max(rows, key=lambda row: float(row["cove_reduction_vs_100mw_baseload_pct"]))
+    return int(float(best["horizon_hours"]))
+
+
+def assert_step2_matches(rows: list[dict[str, str]], horizon: int) -> None:
+    """Require Step 3 one forecast to equal Step 2 at the selected horizon."""
+    step2_summary = CONTROLLED_STEP2_RESULTS / f"horizon_{horizon}h" / "uncertainty_aware_summary.csv"
+    if not step2_summary.exists():
+        print(f"Controlled Step 2 {horizon} h output is unavailable; equality check skipped.")
+        return
+    step2_rows = load_rows(step2_summary)
+    step2 = next(row for row in step2_rows if row["candidate"].startswith("single_forecast_recourse"))
+    step3 = next(row for row in rows if row["candidate"].startswith("single_forecast_recourse"))
+    checks = [
+        "hours",
+        "test_start",
+        "test_end",
+        "dispatch_revenue",
+        "dispatch_cove_index",
+        "100mw_baseload_revenue",
+        "100mw_baseload_cove",
+        "cove_reduction_vs_100mw_baseload_pct",
+        "final_soc",
+        "annual_soc_target_mwh",
+        "annual_soc_target_violation_count",
+        "final_soc_target_violation_count",
+        "causal_ridge_forecast_sha256",
+    ]
+    numeric = {
+        "dispatch_revenue",
+        "dispatch_cove_index",
+        "100mw_baseload_revenue",
+        "100mw_baseload_cove",
+        "cove_reduction_vs_100mw_baseload_pct",
+        "final_soc",
+        "annual_soc_target_mwh",
+    }
+    mismatches = []
+    for key in checks:
+        left = step2.get(key)
+        right = step3.get(key)
+        equal = (
+            abs(float(left) - float(right)) <= 1e-9
+            if key in numeric
+            else left == right
+        )
+        if not equal:
+            mismatches.append(f"{key}: Step 2={left!r}, Step 3={right!r}")
+    if mismatches:
+        raise RuntimeError(
+            f"Step 3 one forecast does not match controlled Step 2 {horizon} h. "
+            "Rerun Step 3 with the synchronized knobs before using its results:\n  "
+            + "\n  ".join(mismatches)
+        )
+    print(f"Controlled equality check: Step 3 one forecast exactly matches Step 2 {horizon} h.")
 
 
 def short_name(candidate: str) -> str:
@@ -85,8 +153,8 @@ def short_name(candidate: str) -> str:
     return names.get(candidate, candidate)
 
 
-def money(value: str) -> str:
-    return f"${float(value):,.2f}"
+def revenue_metric(value: str) -> str:
+    return f"{float(value):,.2f}"
 
 
 def add_wind_only_columns(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -140,11 +208,12 @@ def add_optional(cmd: list[str], flag: str, value) -> None:
 
 
 def rerun_from_knobs() -> None:
+    horizon = selected_horizon()
     cmd = [
         sys.executable,
         str(RUNNER),
         "--horizon-hours",
-        str(knobs.HORIZON_HOURS),
+        str(horizon),
         "--forecast-model-max-horizon-hours",
         str(knobs.FORECAST_MODEL_MAX_HORIZON_HOURS),
         "--evaluation-cutoff-horizon-hours",
@@ -183,6 +252,9 @@ def rerun_from_knobs() -> None:
         str(RESULTS),
     ]
     add_optional(cmd, "--initial-soc-mwh", knobs.INITIAL_SOC_MWH)
+    add_optional(cmd, "--annual-target-soc-mwh", knobs.ANNUAL_TARGET_SOC_MWH)
+    add_optional(cmd, "--final-target-soc-mwh", knobs.FINAL_TARGET_SOC_MWH)
+    add_optional(cmd, "--annual-soc-settlement-hours", knobs.ANNUAL_SOC_SETTLEMENT_HOURS)
     add_optional(cmd, "--max-origins", knobs.MAX_ORIGINS)
     add_optional(cmd, "--gate-margin", knobs.GATE_MARGIN)
     if getattr(knobs, "APPLY_GATE_TO_SINGLE_FORECAST", False):
@@ -204,9 +276,10 @@ def main() -> None:
         rerun_from_knobs()
     else:
         print("STEP 3: SCENARIO DISPATCH COMPARISON")
-        print("RERUN_FROM_SOURCE is False, so I am reading the saved current 100 MW / 10-hour CAES CSV.")
+        print("RERUN_FROM_SOURCE is False, so I am reading the committed frozen 100 MW / 10-hour CAES CSV.")
         print("Set RERUN_FROM_SOURCE = True in EXPERIMENT_KNOBS.py only if you intentionally want a full rerun.\n")
     rows = add_100mw_side_columns(add_wind_only_columns(load_rows(SUMMARY_FILE)))
+    assert_step2_matches(rows, selected_horizon())
     order = {
         "single_forecast_recourse": 1,
         "three_scenario_expected": 3,
@@ -258,15 +331,15 @@ def main() -> None:
     print(f"100 MW benchmark revenue: {benchmark_revenue:,.2f}")
     print(f"100 MW benchmark COVE:    {benchmark_cove:.6f}\n")
     print(
-        f"{'Method':<16} {'Revenue':>18} {'Revenue gain':>14} "
+        f"{'Method':<16} {'Revenue metric':>18} {'Revenue gain':>14} "
         f"{'COVE':>10} {'COVE reduction':>12}"
     )
     print("-" * 76)
-    print(f"{'100 MW bench':<16} {money(str(benchmark_revenue)):>18} {'0.00%':>14} {benchmark_cove:>10.6f} {'0.00%':>12}")
+    print(f"{'100 MW bench':<16} {revenue_metric(str(benchmark_revenue)):>18} {'0.00%':>14} {benchmark_cove:>10.6f} {'0.00%':>12}")
     for row in rows:
         print(
             f"{short_name(row['candidate']):<16} "
-            f"{money(row['dispatch_revenue']):>18} "
+            f"{revenue_metric(row['dispatch_revenue']):>18} "
             f"{float(row['revenue_gain_vs_100mw_baseload_pct']):>13.2f}% "
             f"{float(row['dispatch_cove_index']):>10.6f} "
             f"{float(row['cove_reduction_vs_100mw_baseload_pct']):>11.2f}%"
@@ -301,7 +374,7 @@ def main() -> None:
     rev_gains = [0.0] + [float(row["revenue_gain_vs_100mw_baseload_pct"]) for row in rows]
     revenues = [benchmark_revenue] + [float(row["dispatch_revenue"]) for row in rows]
     coves = [benchmark_cove] + [float(row["dispatch_cove_index"]) for row in rows]
-    colors = ["#9CA3AF"] + ["#60A5FA", "#38BDF8", "#22C55E", "#16A34A", "#F97316"]
+    colors = ["#9CA3AF", "#2563EB", "#0EA5E9", "#7C3AED", "#C026D3", "#EA580C"]
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
     bars = ax.bar(labels, gains, color=colors)
@@ -332,14 +405,15 @@ def main() -> None:
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=180)
-    ax.plot(rev_gains, gains, marker="o", linewidth=2.4, color="#2563EB")
-    for label, x_value, y_value in zip(labels, rev_gains, gains):
-        ax.annotate(label, (x_value, y_value), xytext=(7, 5), textcoords="offset points")
+    ax.plot(rev_gains, gains, linewidth=1.8, color="#94A3B8", zorder=1)
+    for label, x_value, y_value, color in zip(labels, rev_gains, gains, colors):
+        ax.scatter(x_value, y_value, s=70, color=color, label=label, zorder=2)
     ax.set_xlabel("Revenue gain vs 100 MW benchmark (%)")
     ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.set_title("Scenario Tradeoff: Revenue and COVE Move Together", fontweight="bold")
     ax.grid(color="#E5E7EB")
-    fig.tight_layout()
+    ax.legend(frameon=False, loc="upper left", ncol=2, fontsize=9)
+    fig.subplots_adjust(left=0.04, right=0.88, bottom=0.12, top=0.90)
     out3 = FIGURES / "step3_revenue_cove_tradeoff.png"
     fig.savefig(out3, facecolor="white", bbox_inches="tight")
     plt.close(fig)
@@ -351,14 +425,14 @@ def main() -> None:
         float(best["dispatch_revenue"]) / 1e6,
     ]
     fig, ax = plt.subplots(figsize=(9.2, 5.2), dpi=180)
-    bars = ax.bar(ladder_labels, ladder_values, color=["#9CA3AF", "#60A5FA", "#22C55E"])
-    ax.set_ylabel("Revenue (millions)")
+    bars = ax.bar(ladder_labels, ladder_values, color=["#9CA3AF", "#2563EB", "#7C3AED"])
+    ax.set_ylabel("Normalized price-weighted revenue metric (millions)")
     ax.set_title("Ladder Result: Forecast Dispatch to Scenario Dispatch", fontweight="bold")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
     for bar, value in zip(bars, ladder_values):
-        ax.text(bar.get_x() + bar.get_width() / 2, value + 2.0, f"${value:.1f}M", ha="center")
-    fig.tight_layout()
+        ax.text(bar.get_x() + bar.get_width() / 2, value + 0.05, f"{value:.2f}M", ha="center")
+    fig.subplots_adjust(left=0.04, right=0.87, bottom=0.12, top=0.90)
     out4 = FIGURES / "step3_ladder_revenue_progression.png"
     fig.savefig(out4, facecolor="white", bbox_inches="tight")
     plt.close(fig)
@@ -371,11 +445,12 @@ def main() -> None:
     for count, label, revenue_value, cove_value in zip(scenario_counts, labels, revenues, coves):
         ax.text(count, revenue_value / 1e6, cove_value, label.replace(" scenarios", "sc"), fontsize=8)
     ax.set_xlabel("Scenario count")
-    ax.set_ylabel("Revenue (M)")
-    ax.set_zlabel("COVE")
+    ax.set_ylabel("Normalized revenue metric (millions)")
+    ax.set_zlabel("")
     ax.set_title("3D Scenario View: More Scenarios Is Not Automatically Better", fontweight="bold")
     ax.view_init(elev=24, azim=-48)
-    fig.tight_layout()
+    fig.subplots_adjust(left=0.02, right=0.74, bottom=0.10, top=0.90)
+    fig.text(0.78, 0.52, "COVE", rotation=90, va="center", ha="center", fontsize=11)
     out5 = FIGURES / "step3_3d_scenario_revenue_cove.png"
     fig.savefig(out5, facecolor="white", bbox_inches="tight")
     plt.close(fig)

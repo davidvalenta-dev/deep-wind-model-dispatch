@@ -97,6 +97,9 @@ def command(
         str(out_dir),
     ]
     add_optional(cmd, "--test-end", knobs.TEST_END)
+    add_optional(cmd, "--annual-target-soc-mwh", knobs.ANNUAL_TARGET_SOC_MWH)
+    add_optional(cmd, "--final-target-soc-mwh", knobs.FINAL_TARGET_SOC_MWH)
+    add_optional(cmd, "--annual-soc-settlement-hours", knobs.ANNUAL_SOC_SETTLEMENT_HOURS)
     return cmd
 
 
@@ -151,7 +154,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
     bars = ax.bar([f"{h} h" for h in horizons], gains, color="#B91C1C")
-    ax.set_title("Daily-Replan Oracle: COVE Reduction vs 100 MW Benchmark", fontweight="bold")
+    ax.set_title("Hourly-Replan Oracle: COVE Reduction vs 100 MW Benchmark", fontweight="bold")
     ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
@@ -167,7 +170,7 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     ax.plot(horizons, cove, marker="o", linewidth=2.5, color="#B91C1C")
     ax.axhline(baseline_cove, color="#6B7280", linestyle="--", label=f"100 MW benchmark COVE = {baseline_cove:.3f}")
     ax.set_xticks(horizons, [f"{h} h" for h in horizons])
-    ax.set_title("Daily-Replan Oracle COVE by Horizon", fontweight="bold")
+    ax.set_title("Hourly-Replan Oracle COVE by Horizon", fontweight="bold")
     ax.set_ylabel("COVE (lower is better)")
     ax.legend(frameon=False)
     ax.grid(color="#E5E7EB")
@@ -201,69 +204,17 @@ def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     for h, rev, cove_value in zip(horizons, revenue, cove):
         ax.text(h, rev, cove_value, f"{h}h", fontsize=9)
     ax.set_xlabel("Lookahead (h)")
-    ax.set_ylabel("Revenue metric ($M)")
-    ax.set_zlabel("COVE")
+    ax.set_ylabel("Normalized revenue metric (millions)")
+    ax.set_zlabel("")
     ax.set_title("3D Oracle Revenue-COVE View", fontweight="bold")
     ax.view_init(elev=24, azim=-52)
-    fig.tight_layout()
+    fig.subplots_adjust(left=0.02, right=0.74, bottom=0.10, top=0.90)
+    fig.text(0.78, 0.52, "COVE", rotation=90, va="center", ha="center", fontsize=11)
     out = FIGURES / "step4_3d_oracle_revenue_cove.png"
     fig.savefig(out, facecolor="white", bbox_inches="tight")
     plt.close(fig)
     out_paths.append(out)
 
-    return out_paths
-
-
-def draw_daily_hourly_figures(
-    daily_rows: list[dict[str, str]],
-    hourly_rows: list[dict[str, str]],
-) -> list[Path]:
-    if not daily_rows or not hourly_rows:
-        return []
-    out_paths: list[Path] = []
-    daily_168 = next((row for row in daily_rows if int(float(row["horizon_hours"])) == 168), daily_rows[-1])
-    hourly_168 = hourly_rows[-1]
-    labels = ["Daily replan\n168 h", "Hourly replan\n168 h"]
-    gains = [
-        cove_gain_vs_100mw(daily_168) or 0.0,
-        cove_gain_vs_100mw(hourly_168) or 0.0,
-    ]
-    coves = [float(daily_168["cove"]), float(hourly_168["cove"])]
-    revenues = [float(daily_168["revenue_metric"]) / 1e6, float(hourly_168["revenue_metric"]) / 1e6]
-
-    fig, ax = plt.subplots(figsize=(8.2, 5.0), dpi=200)
-    bars = ax.bar(labels, gains, color=["#F97316", "#B91C1C"])
-    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
-    ax.set_title("Oracle Replanning Frequency: Daily vs Hourly", fontweight="bold")
-    ax.grid(axis="y", color="#E5E7EB")
-    ax.set_axisbelow(True)
-    for bar, value in zip(bars, gains):
-        ax.text(bar.get_x() + bar.get_width() / 2, value + 0.25, f"{value:.2f}%", ha="center", fontsize=10)
-    fig.tight_layout()
-    out = FIGURES / "step4_daily_vs_hourly_oracle_gain.png"
-    fig.savefig(out, facecolor="white", bbox_inches="tight")
-    plt.close(fig)
-    out_paths.append(out)
-
-    fig, ax1 = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    x = range(len(labels))
-    ax1.bar([value - 0.18 for value in x], revenues, width=0.36, color="#DC2626", label="Revenue metric")
-    ax2 = ax1.twinx()
-    ax2.plot(list(x), coves, marker="o", color="#111827", linewidth=2.4, label="COVE")
-    ax1.set_xticks(list(x), labels)
-    ax1.set_ylabel("Revenue metric ($M)")
-    ax2.set_ylabel("COVE (lower is better)")
-    ax1.set_title("Oracle Ceiling: Revenue and COVE", fontweight="bold")
-    ax1.grid(axis="y", color="#E5E7EB")
-    for idx, value in enumerate(revenues):
-        ax1.text(idx - 0.18, value + 0.05, f"${value:.2f}M", ha="center", fontsize=9)
-    for idx, value in enumerate(coves):
-        ax2.text(idx + 0.06, value + 0.01, f"{value:.3f}", ha="left", fontsize=9)
-    fig.tight_layout()
-    out = FIGURES / "step4_oracle_daily_hourly_revenue_cove.png"
-    fig.savefig(out, facecolor="white", bbox_inches="tight")
-    plt.close(fig)
-    out_paths.append(out)
     return out_paths
 
 
@@ -338,54 +289,35 @@ def main() -> None:
     print("This uses the final 100 MW / 10-hour CAES storage setup.")
     print("Primary comparison: 100-MW Constant-Output Baseload Benchmark.")
     print("Wind-only appears only as the secondary reference at the bottom of each block.")
-    print("There are two oracle views:")
-    print("  1. Daily-replan oracle: execute first 24 hours, then replan.")
-    print("  2. Hourly-replan oracle reference: execute first hour, then replan.")
+    print("All oracle cases execute one hour and then replan hourly.")
     print()
 
-    daily_cmd = command(
+    hourly_sweep_cmd = command(
         RESULTS,
         list(knobs.HORIZONS),
         int(knobs.EXECUTION_STEP_HOURS),
         int(knobs.REPLANNING_INTERVAL_HOURS),
         str(knobs.TERMINAL_POLICY),
     )
-    daily_oracle = run_or_read(RESULTS, daily_cmd, getattr(knobs, "RERUN_FROM_SOURCE", False))
-    if not daily_oracle:
-        raise RuntimeError("No daily-replan oracle rows were found.")
-    save_oracle_only(daily_oracle)
-    copy_outputs()
-    print_oracle_block("DAILY-REPLAN ORACLE (execute 24 hours, then replan)", daily_oracle)
-
-    hourly_dir = Path(knobs.HOURLY_CEILING_OUTPUT_DIR)
-    hourly_cmd = command(
-        hourly_dir,
-        [int(knobs.HOURLY_CEILING_HORIZON)],
-        int(knobs.HOURLY_CEILING_EXECUTION_STEP_HOURS),
-        int(knobs.HOURLY_CEILING_REPLANNING_INTERVAL_HOURS),
-        str(knobs.HOURLY_CEILING_TERMINAL_POLICY),
+    hourly_sweep_oracle = run_or_read(
+        RESULTS,
+        hourly_sweep_cmd,
+        getattr(knobs, "RERUN_FROM_SOURCE", False),
     )
-    print("\nHOURLY-REPLAN ORACLE REFERENCE COMMAND")
-    hourly_oracle = run_or_read(hourly_dir, hourly_cmd, getattr(knobs, "RUN_HOURLY_168H_CEILING", False))
-    if hourly_oracle:
-        hourly_summary_file = hourly_dir / "oracle_hourly_168h_ceiling_summary.csv"
-        with hourly_summary_file.open("w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(hourly_oracle[0].keys()))
-            writer.writeheader()
-            writer.writerows(hourly_oracle)
-        print_oracle_block("HOURLY-REPLAN ORACLE REFERENCE (execute 1 hour, then replan)", hourly_oracle)
+    if not hourly_sweep_oracle:
+        raise RuntimeError("No hourly-replan oracle rows were found.")
+    save_oracle_only(hourly_sweep_oracle)
+    copy_outputs()
+    print_oracle_block("HOURLY-REPLAN ORACLE HORIZON SWEEP", hourly_sweep_oracle)
 
     print("\nMeaning:")
     print("  Oracle is not realistic because it knows future wind and future price.")
-    print("  Daily oracle matches the ladder's daily execution style.")
-    print("  Hourly oracle is a separate finite-horizon perfect-information reference.")
+    print("  Every reported oracle executes one hour and replans hourly.")
+    print("  The 168-hour row is a finite-window ceiling, not a full-dataset all-knowing solve.")
 
-    figures = draw_figures(daily_oracle)
-    figures.extend(draw_daily_hourly_figures(daily_oracle, hourly_oracle))
+    figures = draw_figures(hourly_sweep_oracle)
     print("\nFiles updated:")
     print(f"  {ORACLE_ONLY_FILE}")
-    if hourly_oracle:
-        print(f"  {Path(knobs.HOURLY_CEILING_OUTPUT_DIR) / 'oracle_hourly_168h_ceiling_summary.csv'}")
     print(f"  {FULL_HOURLY}")
     print("\nFigures saved:")
     for path in figures:

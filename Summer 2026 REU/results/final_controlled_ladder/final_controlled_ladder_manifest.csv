@@ -1,0 +1,15 @@
+step,case,information,horizon_hours,scenario_count,revenue_metric,cove,cove_reduction_vs_100mw_pct,final_soc_mwh,qa_violations
+0,100 MW constant-output benchmark,realized current wind; price used only for scoring,0,0,5962774.411855166,8.62295325105264,0.0,600.0,0
+2,deterministic causal-ridge rolling horizon,one causal-ridge forecast,24,1,8853470.172465779,5.807522248158197,32.65042637858152,600.0,0
+2,deterministic causal-ridge rolling horizon,one causal-ridge forecast,48,1,9055868.368412277,5.677724422248273,34.15568591242021,600.0,0
+2,deterministic causal-ridge rolling horizon,one causal-ridge forecast,72,1,9118656.031269338,5.638629730487013,34.6090652897987,600.0,0
+2,deterministic causal-ridge rolling horizon,one causal-ridge forecast,168,1,9226453.356662529,5.572750764828978,35.373060683720055,600.0,0
+3,uncertainty-aware scenario rolling horizon,causal-ridge center plus fixed residual quantiles,168,1,9226453.356662529,5.572750764828978,35.373060683720055,600.0,0
+3,uncertainty-aware scenario rolling horizon,causal-ridge center plus fixed residual quantiles,168,3,9103166.540413842,5.648224139559962,34.497799360440006,600.0,0
+3,uncertainty-aware scenario rolling horizon,causal-ridge center plus fixed residual quantiles,168,5,9101377.459481884,5.649334425354886,34.48492342614466,600.0,0
+3,uncertainty-aware scenario rolling horizon,causal-ridge center plus fixed residual quantiles,168,7,9090553.154111626,5.656061202034157,34.40691330033945,600.0,0
+3,uncertainty-aware scenario rolling horizon,causal-ridge center plus fixed residual quantiles,168,10,9117510.563369757,5.639338133214819,34.60084997530978,600.0,0
+4,rolling-window Oracle ceiling,perfect future wind and price inside the window,24,0,9983543.245190777,5.150147972241039,40.2739662120708,600.0,0
+4,rolling-window Oracle ceiling,perfect future wind and price inside the window,48,0,10075427.340955302,5.1031805659495655,40.81864510483577,600.0,0
+4,rolling-window Oracle ceiling,perfect future wind and price inside the window,72,0,10079309.13119585,5.101215205401653,40.841437302481886,600.0,0
+4,rolling-window Oracle ceiling,perfect future wind and price inside the window,168,0,10079788.483354028,5.10097261315658,40.84425063380829,600.0,0

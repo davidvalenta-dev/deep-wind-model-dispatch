@@ -28,6 +28,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+import sys
+
+sys.path.insert(0, str(REPO_ROOT / "Summer 2026 REU" / "common"))
+from annual_soc import next_target_corridor  # noqa: E402
+from metrics import annualized_dispatch_cost, cove  # noqa: E402
+
 
 @dataclass(frozen=True)
 class StorageConfig:
@@ -41,6 +48,9 @@ class StorageConfig:
     initial_soc_mwh: float | None
     price_threshold: float
     normalized_price_train_end: str
+    annual_target_soc_mwh: float | None
+    final_target_soc_mwh: float | None
+    annual_soc_settlement_hours: int
 
     @property
     def capacity_mwh(self) -> float:
@@ -98,6 +108,7 @@ def load_data(path: Path, start: str, end: str | None, config: StorageConfig) ->
 def run_100mw_baseload(df: pd.DataFrame, config: StorageConfig) -> pd.DataFrame:
     rows: list[dict[str, float | str]] = []
     soc = float(np.clip(config.initial_soc, config.min_soc, config.max_soc))
+    final_timestamp = pd.Timestamp(df["datetime"].iloc[-1])
     for _, row in df.iterrows():
         wind = max(0.0, float(row["actual_wind_mw"]))
         soc_start = soc
@@ -113,6 +124,61 @@ def run_100mw_baseload(df: pd.DataFrame, config: StorageConfig) -> pd.DataFrame:
             needed = max(0.0, config.target_output_mw - direct)
             available_discharge = max(0.0, (soc_start - config.min_soc) * config.rte)
             discharge = min(needed, config.storage_power_mw, available_discharge, config.grid_cap_mw - direct)
+            delivered = direct + discharge
+
+        corridor = next_target_corridor(
+            pd.Timestamp(row["datetime"]),
+            final_timestamp,
+            config.annual_target_soc_mwh,
+            config.final_target_soc_mwh,
+            config.min_soc,
+            config.max_soc,
+            config.storage_power_mw,
+            config.rte,
+            config.annual_soc_settlement_hours,
+        )
+        if corridor.active and corridor.target_mwh is not None:
+            if soc_start < corridor.target_mwh - 1e-7:
+                discharge = 0.0
+                charge = min(
+                    config.storage_power_mw,
+                    wind,
+                    config.max_soc - soc_start,
+                    corridor.target_mwh - soc_start,
+                )
+                direct = min(config.target_output_mw, max(0.0, wind - charge), config.grid_cap_mw)
+                delivered = direct
+            else:
+                discharge = min(discharge, max(0.0, (soc_start - corridor.target_mwh) * config.rte))
+                direct = min(direct, wind, max(0.0, config.grid_cap_mw - discharge))
+                delivered = direct + discharge
+        projected_soc = soc_start + charge - discharge / config.rte
+        if projected_soc < corridor.lower_mwh - 1e-7:
+            discharge = 0.0
+            required_charge = max(0.0, corridor.lower_mwh - soc_start)
+            feasible_charge = min(config.storage_power_mw, wind, config.max_soc - soc_start)
+            if required_charge > feasible_charge + 1e-6:
+                raise RuntimeError(
+                    f"100 MW benchmark cannot physically reach annual SoC floor at {row['datetime']}"
+                )
+            charge = max(charge, required_charge)
+            direct = min(config.target_output_mw, max(0.0, wind - charge), config.grid_cap_mw)
+            delivered = direct
+        projected_soc = soc_start + charge - discharge / config.rte
+        if projected_soc > corridor.upper_mwh + 1e-7:
+            charge = 0.0
+            required_discharge = max(0.0, (soc_start - corridor.upper_mwh) * config.rte)
+            feasible_discharge = min(
+                config.storage_power_mw,
+                max(0.0, (soc_start - config.min_soc) * config.rte),
+                config.grid_cap_mw,
+            )
+            if required_discharge > feasible_discharge + 1e-6:
+                raise RuntimeError(
+                    f"100 MW benchmark cannot physically reach annual SoC ceiling at {row['datetime']}"
+                )
+            discharge = max(discharge, required_discharge)
+            direct = min(direct, wind, max(0.0, config.grid_cap_mw - discharge))
             delivered = direct + discharge
 
         soc = soc_start + charge - discharge / config.rte
@@ -138,6 +204,10 @@ def run_100mw_baseload(df: pd.DataFrame, config: StorageConfig) -> pd.DataFrame:
                 "normalized_price": float(row["normalized_price"]),
                 "raw_hourly_revenue_usd": raw_revenue,
                 "normalized_hourly_revenue_metric": normalized_revenue,
+                "annual_soc_control_active": float(corridor.active),
+                "annual_soc_lower_bound_mwh": corridor.lower_mwh,
+                "annual_soc_upper_bound_mwh": corridor.upper_mwh,
+                "annual_soc_target_mwh": corridor.target_mwh,
             }
         )
     return pd.DataFrame(rows)
@@ -289,6 +359,9 @@ def main() -> None:
     parser.add_argument("--initial-soc-mwh", type=float, default=None)
     parser.add_argument("--price-threshold", type=float, default=1000.0)
     parser.add_argument("--normalized-price-train-end", default="2014-01-01")
+    parser.add_argument("--annual-target-soc-mwh", type=float, default=600.0)
+    parser.add_argument("--final-target-soc-mwh", type=float, default=600.0)
+    parser.add_argument("--annual-soc-settlement-hours", type=int, default=720)
     parser.add_argument("--rolling-summary", type=Path, default=None)
     parser.add_argument("--scenario-summary", type=Path, default=None)
     parser.add_argument("--oracle-summary", type=Path, default=None)
@@ -307,6 +380,9 @@ def main() -> None:
         initial_soc_mwh=args.initial_soc_mwh,
         price_threshold=args.price_threshold,
         normalized_price_train_end=args.normalized_price_train_end,
+        annual_target_soc_mwh=args.annual_target_soc_mwh,
+        final_target_soc_mwh=args.final_target_soc_mwh,
+        annual_soc_settlement_hours=args.annual_soc_settlement_hours,
     )
     df = load_data(args.data, args.start, args.end, config)
     labels = run_100mw_baseload(df, config)
@@ -314,6 +390,32 @@ def main() -> None:
     labels.to_csv(hourly_path, index=False)
 
     summary = summarize_period(labels)
+    timestamps = pd.to_datetime(labels["datetime"])
+    annual_mask = (
+        (timestamps.dt.month == 12)
+        & (timestamps.dt.day == 31)
+        & (timestamps.dt.hour == 23)
+    )
+    annual_errors = np.abs(
+        labels.loc[annual_mask, "soc_end_mwh"].to_numpy(float)
+        - float(config.annual_target_soc_mwh)
+    ) if config.annual_target_soc_mwh is not None else np.array([], dtype=float)
+    final_target_error = (
+        abs(float(labels["soc_end_mwh"].iloc[-1]) - float(config.final_target_soc_mwh))
+        if config.final_target_soc_mwh is not None
+        else 0.0
+    )
+    wind_violation = float(
+        np.maximum(labels["direct_wind_mw"] + labels["charge_mw"] - labels["actual_wind_mw"], 0.0).max()
+    )
+    grid_violation = float(np.maximum(labels["delivered_power_mw"] - config.grid_cap_mw, 0.0).max())
+    soc_update_violation = float(
+        np.abs(
+            labels["soc_end_mwh"]
+            - (labels["soc_start_mwh"] + labels["charge_mw"] - labels["discharge_mw"] / config.rte)
+        ).max()
+    )
+    simultaneous = float(np.minimum(labels["charge_mw"], labels["discharge_mw"]).max())
     summary.update(
         {
             "case_id": "constant_output_baseload_100mw_2014_2023",
@@ -326,10 +428,49 @@ def main() -> None:
             "min_soc_mwh_configured": config.min_soc,
             "max_soc_mwh_configured": config.max_soc,
             "initial_soc_mwh_configured": config.initial_soc,
+            "annual_target_soc_mwh": config.annual_target_soc_mwh,
+            "final_target_soc_mwh": config.final_target_soc_mwh,
+            "annual_soc_settlement_hours": config.annual_soc_settlement_hours,
+            "annual_soc_target_count": int(annual_mask.sum()),
+            "annual_soc_target_violation_count": int(np.sum(annual_errors > 1e-5)),
+            "annual_soc_target_max_abs_error": float(annual_errors.max()) if annual_errors.size else 0.0,
+            "final_soc_target_abs_error": float(final_target_error),
+            "final_soc_target_violation_count": int(final_target_error > 1e-5),
+            "qa_max_wind_balance_violation": wind_violation,
+            "qa_max_grid_violation": grid_violation,
+            "qa_max_soc_update_violation": soc_update_violation,
+            "qa_max_simultaneous_charge_discharge": simultaneous,
+            "qa_total_violation_count": int(
+                sum(value > 1e-5 for value in [wind_violation, grid_violation, soc_update_violation, simultaneous])
+            ),
+            "annualized_dispatch_cost_usd": annualized_dispatch_cost(
+                wind_rating_mw=config.grid_cap_mw,
+                storage_power_mw=config.storage_power_mw,
+            ),
+            "normalized_cove_index": cove(
+                annualized_dispatch_cost(
+                    wind_rating_mw=config.grid_cap_mw,
+                    storage_power_mw=config.storage_power_mw,
+                ),
+                float(summary["normalized_revenue_metric"]),
+            ),
+            "raw_cove_usd_basis": cove(
+                annualized_dispatch_cost(
+                    wind_rating_mw=config.grid_cap_mw,
+                    storage_power_mw=config.storage_power_mw,
+                ),
+                float(summary["raw_revenue_usd"]),
+            ),
             "price_note": "raw revenue uses raw LMP; normalized revenue uses the rolling-horizon normalized/capped price metric",
             "hourly_output_file": str(hourly_path),
         }
     )
+    if (
+        summary["annual_soc_target_violation_count"]
+        or summary["final_soc_target_violation_count"]
+        or summary["qa_total_violation_count"]
+    ):
+        raise RuntimeError(f"100 MW benchmark failed annual/final SoC QA: {summary}")
     pd.DataFrame([summary]).to_csv(out_dir / "constant_output_baseload_100mw_2014_2023_summary.csv", index=False)
 
     metadata = {

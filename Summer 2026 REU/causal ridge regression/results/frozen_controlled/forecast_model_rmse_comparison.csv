@@ -1,0 +1,7 @@
+source,model,start,end,samples,rmse_mw,mae_mw,bias_mw
+results/current_run_from_knobs/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv,causal_lag_prediction_mw,2014-07-31 12:00:00,2023-12-31 23:00:00,82276,21.240126078196283,13.621438144664586,-0.18161616065901698
+results/current_run_from_knobs/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv,lag1_persistence_prediction_mw,2014-07-31 12:00:00,2023-12-31 23:00:00,82276,23.60420854356089,14.552610554718264,0.0007389518207010593
+results/current_run_from_knobs/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv,speed_power_curve_prediction_mw,2014-07-31 12:00:00,2023-12-31 23:00:00,82276,41.856054302848705,30.788073808566217,-1.3371308254285634
+power_model/evaluation/pyron_model_results.csv,rnn_preds,2014-07-30 12:00:00,2023-12-31 23:00:00,82300,46.21399562018458,33.31129217511541,-3.6226292342633726
+power_model/evaluation/pyron_model_results.csv,physics_preds,2014-07-30 12:00:00,2023-12-31 23:00:00,82300,50.853584368425935,36.4929878706549,8.586227798285568
+power_model/evaluation/pyron_model_results.csv,prob_preds,2014-07-30 12:00:00,2023-12-31 23:00:00,82300,71.68616700517494,50.420795369350024,-0.7303325905117375

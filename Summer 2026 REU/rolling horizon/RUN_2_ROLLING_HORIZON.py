@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Step 2 of the Summer 2026 REU ladder: deterministic rolling horizon.
+"""Step 2: controlled single-forecast rolling-horizon comparison.
+
+This wrapper deliberately calls the exact Step 3 scenario runner with only
+``single_recourse`` enabled. Step 2 therefore changes planning horizon and
+nothing else. The winning Step 2 horizon must equal the Step 3 one-forecast
+row when both are rerun from the same knobs.
 
 Run from this folder:
     ../../venv/bin/python RUN_2_ROLLING_HORIZON.py
-
-This is the final 100 MW / 10-hour CAES deterministic dispatch experiment. It uses the
-causal ridge forecast, sends that forecast to Gurobi, executes the first
-24 hours, carries the battery state forward, and replans the next day.
 """
 
 from __future__ import annotations
 
 import csv
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -20,7 +22,11 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[1]
+SCENARIO_FOLDER = HERE.parent / "different scenarios"
+CANONICAL_CONTROLLER = SCENARIO_FOLDER / "code" / "run_uncertainty_aware_dispatch.py"
+STEP3_SUMMARY = SCENARIO_FOLDER / "results" / "frozen_controlled" / "uncertainty_aware_summary.csv"
+STEP3_KNOBS_PATH = SCENARIO_FOLDER / "EXPERIMENT_KNOBS.py"
+
 os.environ["LC_ALL"] = "C"
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "summer_reu_mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(Path(tempfile.gettempdir()) / "summer_reu_cache"))
@@ -36,9 +42,82 @@ import EXPERIMENT_KNOBS as knobs
 RESULTS = Path(knobs.OUTPUT_DIR)
 FIGURES = HERE / "figures"
 FULL_HOURLY = HERE / "results" / "full_hourly_outputs"
-SUMMARY_FILE = RESULTS / "forecast_dispatch_summary.csv"
+SUMMARY_FILE = RESULTS / "controlled_single_forecast_horizon_summary.csv"
 SUMMARY_ALIAS = HERE / "results" / "causal_ridge_rolling_horizon_summary.csv"
-SOURCE_RUNNER = HERE / "code" / "forecast_backtest_rolling_horizons.py"
+CANONICAL_DISPATCH_COST_USD = 51_416_725.0
+CANONICAL_WIND_ONLY_COST_USD = 42_559_080.0
+
+
+def normalize_cove_metrics(row: dict[str, str]) -> dict[str, str]:
+    """Refresh COVE fields using the frozen 100 MW / 10 h CAES cost model."""
+    result = dict(row)
+    dispatch_revenue = float(result["dispatch_revenue"])
+    baseload_revenue = float(result["baseload_revenue"])
+    wind_revenue = float(result["wind_only_revenue"])
+    benchmark_revenue = float(result["100mw_baseload_revenue"])
+    dispatch_cove = CANONICAL_DISPATCH_COST_USD / dispatch_revenue
+    baseload_cove = CANONICAL_DISPATCH_COST_USD / baseload_revenue
+    wind_cove = CANONICAL_WIND_ONLY_COST_USD / wind_revenue
+    benchmark_cove = CANONICAL_DISPATCH_COST_USD / benchmark_revenue
+    result.update(
+        {
+            "dispatch_cove_index": str(dispatch_cove),
+            "annualized_dispatch_cost_usd": str(CANONICAL_DISPATCH_COST_USD),
+            "baseload_cove_index": str(baseload_cove),
+            "wind_only_cove_index": str(wind_cove),
+            "100mw_baseload_cove": str(benchmark_cove),
+            "cove_reduction_vs_baseload_pct": str((1.0 - dispatch_cove / baseload_cove) * 100.0),
+            "cove_reduction_vs_wind_only_pct": str((1.0 - dispatch_cove / wind_cove) * 100.0),
+            "cove_reduction_vs_100mw_baseload_pct": str(
+                (1.0 - dispatch_cove / benchmark_cove) * 100.0
+            ),
+        }
+    )
+    return result
+
+
+def assert_step3_settings_match() -> None:
+    """Fail before a long run if a shared Step 2/Step 3 setting has drifted."""
+    spec = importlib.util.spec_from_file_location("step3_experiment_knobs", STEP3_KNOBS_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load Step 3 knobs from {STEP3_KNOBS_PATH}")
+    step3 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(step3)
+    shared = [
+        "FORECAST_MODEL_MAX_HORIZON_HOURS",
+        "EVALUATION_CUTOFF_HORIZON_HOURS",
+        "EXECUTION_STEP_HOURS",
+        "REPLANNING_INTERVAL_HOURS",
+        "STORAGE_POWER_MW",
+        "STORAGE_DURATION_H",
+        "RTE",
+        "DOD",
+        "GRID_CAP_MW",
+        "INITIAL_SOC_MWH",
+        "ANNUAL_TARGET_SOC_MWH",
+        "FINAL_TARGET_SOC_MWH",
+        "ANNUAL_SOC_SETTLEMENT_HOURS",
+        "NOWCAST_FIRST_HOUR",
+        "GATE_MARGIN",
+        "APPLY_GATE_TO_SINGLE_FORECAST",
+        "FALLBACK_TARGET_MW",
+        "DIRECT_RESERVE_MW",
+        "TRAIN_ORIGIN_STRIDE",
+        "RESIDUAL_ORIGIN_STRIDE",
+        "CALIBRATION_MODE",
+        "FORECAST_TRAIN_END",
+        "CALIBRATION_END",
+        "MAX_ORIGINS",
+    ]
+    mismatches = [
+        f"{name}: Step 2={getattr(knobs, name)!r}, Step 3={getattr(step3, name)!r}"
+        for name in shared
+        if getattr(knobs, name) != getattr(step3, name)
+    ]
+    if int(step3.HORIZON_HOURS) not in [int(value) for value in knobs.HORIZONS]:
+        mismatches.append(f"Step 3 horizon {step3.HORIZON_HOURS} is missing from Step 2 HORIZONS")
+    if mismatches:
+        raise RuntimeError("Controlled Step 2/Step 3 settings do not match:\n  " + "\n  ".join(mismatches))
 
 
 def add_optional(command: list[str], flag: str, value) -> None:
@@ -46,249 +125,276 @@ def add_optional(command: list[str], flag: str, value) -> None:
         command.extend([flag, str(value)])
 
 
-def command() -> list[str]:
+def command(horizon: int, out_dir: Path) -> list[str]:
+    """Build the exact Step 3 single-forecast command for one horizon."""
     cmd = [
         sys.executable,
-        str(SOURCE_RUNNER),
-        "--data",
-        str(knobs.DATA),
-        "--config",
-        str(knobs.CONFIG),
-        "--train-end",
-        str(knobs.TRAIN_END),
-        "--alpha",
-        str(knobs.ALPHA),
-        "--train-origin-stride",
-        str(knobs.TRAIN_ORIGIN_STRIDE),
-        "--mip-gap",
-        str(knobs.MIP_GAP),
-        "--storage-power-mw",
-        str(knobs.STORAGE_POWER_MW),
-        "--storage-duration-h",
-        str(knobs.STORAGE_DURATION_H),
-        "--grid-cap-mw",
-        str(knobs.GRID_CAP_MW),
-        "--initial-soc",
-        str(knobs.INITIAL_SOC_MWH),
-        "--min-soc-frac",
-        str(knobs.MIN_SOC_FRAC),
-        "--max-soc-frac",
-        str(knobs.MAX_SOC_FRAC),
+        str(CANONICAL_CONTROLLER),
+        "--horizon-hours",
+        str(horizon),
+        "--forecast-model-max-horizon-hours",
+        str(knobs.FORECAST_MODEL_MAX_HORIZON_HOURS),
+        "--evaluation-cutoff-horizon-hours",
+        str(knobs.EVALUATION_CUTOFF_HORIZON_HOURS),
         "--execution-step-hours",
         str(knobs.EXECUTION_STEP_HOURS),
         "--replanning-interval-hours",
         str(knobs.REPLANNING_INTERVAL_HOURS),
-        "--terminal-policy",
-        str(knobs.TERMINAL_POLICY),
-        "--primary-baseline-storage-duration-h",
-        str(knobs.PRIMARY_BASELINE_STORAGE_DURATION_H),
+        "--storage-power-mw",
+        str(knobs.STORAGE_POWER_MW),
+        "--storage-duration-h",
+        str(knobs.STORAGE_DURATION_H),
+        "--rte",
+        str(knobs.RTE),
+        "--dod",
+        str(knobs.DOD),
+        "--grid-cap-mw",
+        str(knobs.GRID_CAP_MW),
         "--direct-reserve-mw",
         str(knobs.DIRECT_RESERVE_MW),
-        "--horizons",
-        *[str(horizon) for horizon in knobs.HORIZONS],
+        "--train-origin-stride",
+        str(knobs.TRAIN_ORIGIN_STRIDE),
+        "--residual-origin-stride",
+        str(knobs.RESIDUAL_ORIGIN_STRIDE),
+        "--fallback-target-mw",
+        str(knobs.FALLBACK_TARGET_MW),
+        "--calibration-mode",
+        str(knobs.CALIBRATION_MODE),
+        "--forecast-train-end",
+        str(knobs.FORECAST_TRAIN_END),
+        "--calibration-end",
+        str(knobs.CALIBRATION_END),
+        "--variants",
+        "single_recourse",
         "--out-dir",
-        str(RESULTS),
+        str(out_dir),
     ]
-    add_optional(cmd, "--test-end", knobs.TEST_END)
-    if not knobs.RUN_ORACLE_CONTEXT:
-        cmd.append("--skip-oracle")
+    add_optional(cmd, "--initial-soc-mwh", knobs.INITIAL_SOC_MWH)
+    add_optional(cmd, "--annual-target-soc-mwh", knobs.ANNUAL_TARGET_SOC_MWH)
+    add_optional(cmd, "--final-target-soc-mwh", knobs.FINAL_TARGET_SOC_MWH)
+    add_optional(cmd, "--annual-soc-settlement-hours", knobs.ANNUAL_SOC_SETTLEMENT_HOURS)
+    add_optional(cmd, "--max-origins", knobs.MAX_ORIGINS)
+    add_optional(cmd, "--gate-margin", knobs.GATE_MARGIN)
+    if knobs.APPLY_GATE_TO_SINGLE_FORECAST:
+        cmd.append("--gate-single-forecast")
+    cmd.append("--nowcast-first-hour" if knobs.NOWCAST_FIRST_HOUR else "--no-nowcast-first-hour")
     return cmd
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing result file: {path}")
     with path.open(newline="") as handle:
         return list(csv.DictReader(handle))
 
 
-def copy_outputs() -> None:
-    SUMMARY_ALIAS.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(SUMMARY_FILE, SUMMARY_ALIAS)
+def write_rows(path: Path, rows: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def single_row(summary_path: Path) -> dict[str, str]:
+    rows = [
+        row
+        for row in load_rows(summary_path)
+        if row.get("candidate", "").startswith("single_forecast_recourse")
+    ]
+    if len(rows) != 1:
+        raise RuntimeError(f"Expected one single-forecast row in {summary_path}; found {len(rows)}")
+    return rows[0]
+
+
+def labels_name() -> str:
+    suffix = "_nowcast" if knobs.NOWCAST_FIRST_HOUR else ""
+    if knobs.GATE_MARGIN is not None and knobs.APPLY_GATE_TO_SINGLE_FORECAST:
+        suffix += "_gated"
+    return f"single_forecast_recourse{suffix}_labels.csv"
+
+
+def run_or_load_horizons() -> list[dict[str, str]]:
+    RESULTS.mkdir(parents=True, exist_ok=True)
     FULL_HOURLY.mkdir(parents=True, exist_ok=True)
-    for csv_file in RESULTS.glob("*dispatch_*h.csv"):
-        shutil.copy2(csv_file, FULL_HOURLY / csv_file.name)
+    rows: list[dict[str, str]] = []
+
+    for horizon in knobs.HORIZONS:
+        horizon = int(horizon)
+        horizon_dir = RESULTS / f"horizon_{horizon}h"
+        cmd = command(horizon, horizon_dir)
+        print(f"\n{horizon} h controlled command:")
+        print(" ".join(map(str, cmd)))
+        reuse = horizon in set(getattr(knobs, "REUSE_COMPLETED_HORIZONS", []))
+        if knobs.RERUN_FROM_SOURCE and not reuse:
+            subprocess.run(cmd, cwd=SCENARIO_FOLDER, check=True)
+        elif reuse:
+            print(f"Reusing completed {horizon} h source rerun after QA validation.")
+
+        summary_path = horizon_dir / "uncertainty_aware_summary.csv"
+        if not summary_path.exists():
+            raise FileNotFoundError(
+                f"{summary_path} does not exist. Set RERUN_FROM_SOURCE = True to create the controlled result."
+            )
+        row = normalize_cove_metrics(single_row(summary_path))
+        row["horizon_hours"] = str(horizon)
+        row["controller_protocol"] = "hourly nowcast + gated recourse + 75 MW direct reserve"
+        row["source_summary_file"] = str(summary_path)
+        rows.append(row)
+        write_rows(summary_path, [row])
+
+        labels_path = horizon_dir / labels_name()
+        if labels_path.exists():
+            shutil.copy2(labels_path, FULL_HOURLY / f"single_forecast_{horizon}h_hourly.csv")
+
+    rows.sort(key=lambda row: int(float(row["horizon_hours"])))
+    write_rows(SUMMARY_FILE, rows)
+    write_rows(SUMMARY_ALIAS, rows)
+    return rows
 
 
-def cove_gain_vs_wind(row: dict[str, str]) -> float:
-    return float(row.get("cove_improvement_vs_wind_only_pct", row["improvement_vs_baseload_pct"]))
-
-
-def cove_gain_vs_100mw(row: dict[str, str]) -> float | None:
-    value = row.get("cove_improvement_vs_100mw_baseload_pct")
-    return None if value in (None, "") else float(value)
-
-
-def raw_revenue_gain_vs_wind(row: dict[str, str]) -> float | None:
-    value = row.get("raw_revenue_gain_vs_wind_only_pct")
-    return None if value in (None, "") else float(value)
-
-
-def raw_revenue_gain_vs_100mw(row: dict[str, str]) -> float | None:
-    value = row.get("raw_revenue_gain_vs_100mw_baseload_pct")
-    return None if value in (None, "") else float(value)
-
-
-def draw_figures(causal: list[dict[str, str]], oracle: list[dict[str, str]]) -> list[Path]:
+def draw_figures(rows: list[dict[str, str]]) -> list[Path]:
     FIGURES.mkdir(parents=True, exist_ok=True)
-    horizons = [int(float(row["horizon_hours"])) for row in causal]
-    cove = [float(row["cove"]) for row in causal]
-    gains = [cove_gain_vs_100mw(row) or 0.0 for row in causal]
-    revenue = [float(row["revenue_metric"]) / 1e6 for row in causal]
-    benchmark_cove = float(causal[0]["constant_output_100mw_cove"])
-
-    out_paths: list[Path] = []
-
-    fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    bars = ax.bar([f"{h} h" for h in horizons], gains, color="#2563EB")
-    ax.axhline(0, color="#111827", linewidth=1)
-    ax.set_title("Deterministic Forecast-Driven RH MILP: COVE Reduction vs 100 MW Benchmark", fontweight="bold")
-    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
-    ax.grid(axis="y", color="#E5E7EB")
-    ax.set_axisbelow(True)
-    for bar, value in zip(bars, gains):
-        ax.text(bar.get_x() + bar.get_width() / 2, value + 0.2, f"{value:.2f}%", ha="center", fontsize=9)
-    fig.tight_layout()
-    out = FIGURES / "step2_causal_horizon_improvement.png"
-    fig.savefig(out, facecolor="white", bbox_inches="tight")
-    plt.close(fig)
-    out_paths.append(out)
+    horizons = [int(float(row["horizon_hours"])) for row in rows]
+    gains = [float(row["cove_reduction_vs_100mw_baseload_pct"]) for row in rows]
+    coves = [float(row["dispatch_cove_index"]) for row in rows]
+    revenues = [float(row["dispatch_revenue"]) / 1e6 for row in rows]
+    benchmark_cove = float(rows[0]["100mw_baseload_cove"])
+    paths: list[Path] = []
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    ax.plot(horizons, cove, marker="o", linewidth=2.5, color="#1D4ED8")
-    ax.axhline(benchmark_cove, color="#6B7280", linestyle="--", label=f"100 MW benchmark COVE = {benchmark_cove:.3f}")
+    ax.plot(horizons, gains, marker="o", linewidth=2.6, color="#2563EB")
     ax.set_xticks(horizons, [f"{h} h" for h in horizons])
-    ax.set_title("COVE by Planning Window", fontweight="bold")
-    ax.set_ylabel("COVE (lower is better)")
+    ax.set_title("Controlled Hourly-Replan Horizon Comparison", fontweight="bold")
+    ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
+    ax.grid(color="#E5E7EB")
+    ax.set_axisbelow(True)
+    for x_value, y_value in zip(horizons, gains):
+        ax.annotate(f"{y_value:.2f}%", (x_value, y_value), xytext=(0, 8), textcoords="offset points", ha="center")
+    fig.tight_layout()
+    path = FIGURES / "step2_controlled_hourly_horizon_improvement.png"
+    fig.savefig(path, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+    paths.append(path)
+
+    fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
+    ax.plot(horizons, coves, marker="o", linewidth=2.6, color="#1D4ED8")
+    ax.axhline(benchmark_cove, color="#6B7280", linestyle="--", label=f"100 MW benchmark = {benchmark_cove:.3f}")
+    ax.set_xticks(horizons, [f"{h} h" for h in horizons])
+    ax.set_title("Controlled COVE by Planning Horizon", fontweight="bold")
+    ax.set_ylabel("COVE index (lower is better)")
     ax.legend(frameon=False)
     ax.grid(color="#E5E7EB")
     ax.set_axisbelow(True)
-    for x_value, y_value in zip(horizons, cove):
-        ax.text(x_value, y_value + 0.025, f"{y_value:.3f}", ha="center", fontsize=9)
     fig.tight_layout()
-    out = FIGURES / "step2_causal_horizon_cove.png"
-    fig.savefig(out, facecolor="white", bbox_inches="tight")
+    path = FIGURES / "step2_controlled_hourly_horizon_cove.png"
+    fig.savefig(path, facecolor="white", bbox_inches="tight")
     plt.close(fig)
-    out_paths.append(out)
+    paths.append(path)
 
     fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-    bars = ax.bar([f"{h} h" for h in horizons], revenue, color="#0F766E")
-    ax.set_title("Reported Revenue Metric by Horizon", fontweight="bold")
-    ax.set_ylabel("Revenue metric ($ millions)")
+    bars = ax.bar([f"{h} h" for h in horizons], revenues, color="#0F766E")
+    ax.set_title("Reported Revenue Metric by Controlled Planning Horizon", fontweight="bold")
+    ax.set_ylabel("Normalized price-weighted revenue metric (millions)")
     ax.grid(axis="y", color="#E5E7EB")
     ax.set_axisbelow(True)
-    for bar, value in zip(bars, revenue):
-        ax.text(bar.get_x() + bar.get_width() / 2, value + 0.05, f"${value:.2f}M", ha="center", fontsize=9)
+    ax.set_ylim(0, max(revenues) * 1.12)
+    for bar, value in zip(bars, revenues):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            value + max(revenues) * 0.015,
+            f"{value:.2f}M",
+            ha="center",
+            fontsize=9,
+        )
     fig.tight_layout()
-    out = FIGURES / "step2_revenue_by_horizon.png"
-    fig.savefig(out, facecolor="white", bbox_inches="tight")
+    path = FIGURES / "step2_controlled_hourly_horizon_revenue.png"
+    fig.savefig(path, facecolor="white", bbox_inches="tight")
     plt.close(fig)
-    out_paths.append(out)
+    paths.append(path)
+    return paths
 
-    if oracle:
-        oracle_h = [int(float(row["horizon_hours"])) for row in oracle]
-        oracle_g = [cove_gain_vs_100mw(row) or 0.0 for row in oracle]
-        fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
-        ax.plot(horizons, gains, marker="o", linewidth=2.5, label="Causal forecast", color="#2563EB")
-        ax.plot(oracle_h, oracle_g, marker="o", linewidth=2.5, label="Oracle future information", color="#6B7280")
-        ax.set_xticks(horizons, [f"{h} h" for h in horizons])
-        ax.set_title("Causal Result vs Oracle Context", fontweight="bold")
-        ax.set_ylabel("COVE reduction vs 100 MW benchmark (%)")
-        ax.legend(frameon=False)
-        ax.grid(color="#E5E7EB")
-        ax.set_axisbelow(True)
-        fig.tight_layout()
-        out = FIGURES / "step2_causal_vs_oracle_context.png"
-        fig.savefig(out, facecolor="white", bbox_inches="tight")
-        plt.close(fig)
-        out_paths.append(out)
 
-    return out_paths
+def report_step3_equivalence(step2_rows: list[dict[str, str]]) -> None:
+    spec = importlib.util.spec_from_file_location("step3_equivalence_knobs", STEP3_KNOBS_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load Step 3 knobs from {STEP3_KNOBS_PATH}")
+    step3_knobs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(step3_knobs)
+    selected_horizon = int(step3_knobs.HORIZON_HOURS)
+    step2_selected = next(
+        (row for row in step2_rows if int(float(row["horizon_hours"])) == selected_horizon),
+        None,
+    )
+    if step2_selected is None or not STEP3_SUMMARY.exists():
+        print("\nStep 2/Step 3 equality check: Step 3 controlled output is not available yet.")
+        return
+    step3_selected = normalize_cove_metrics(single_row(STEP3_SUMMARY))
+    checks = ["hours", "test_start", "test_end", "dispatch_revenue", "dispatch_cove_index", "final_soc"]
+    exact = all(step2_selected.get(key) == step3_selected.get(key) for key in checks)
+    print(f"\nStep 2 {selected_horizon} h vs Step 3 one-forecast equality check:")
+    print("  MATCH" if exact else "  NOT YET MATCHED: rerun Step 3 with its updated controlled knobs.")
+    for key in checks:
+        print(f"  {key}: Step 2={step2_selected.get(key)} | Step 3={step3_selected.get(key)}")
 
 
 def main() -> None:
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    print("STEP 2: CAUSAL RIDGE + DAILY ROLLING-HORIZON GUROBI")
-    print("This is the final 100 MW / 10-hour CAES deterministic result.")
-    print("Primary comparison: 100-MW Constant-Output Baseload Benchmark.")
-    print("Wind-only baseline is printed at the bottom as secondary reference only.")
-    print("Execution rule: solve a multi-hour horizon, execute first 24 hours, then replan.")
-    print()
-    cmd = command()
-    print("Command:")
-    print(" ".join(map(str, cmd)))
-    print()
-    if knobs.RERUN_FROM_SOURCE:
-        subprocess.run(cmd, cwd=REPO_ROOT, check=True)
-    else:
-        print("RERUN_FROM_SOURCE is False, so I am reading the existing frozen CSV.")
+    assert_step3_settings_match()
+    print("STEP 2: CONTROLLED CAUSAL-RIDGE HORIZON COMPARISON")
+    print("Canonical controller: Step 3 run_uncertainty_aware_dispatch.py with one forecast only.")
+    print("Execution: first hour, then replan; current-hour nowcast; identical gate, reserve, and CAES settings.")
+    print("Primary benchmark: 100-MW Constant-Output Baseload Benchmark.")
+    print("The selected-horizon row must equal the Step 3 one-forecast row after both controlled reruns.\n")
 
-    copy_outputs()
-    rows = load_rows(SUMMARY_FILE)
-    causal = sorted(
-        [row for row in rows if row["method"] == "causal_forecast_direct_reserve"],
-        key=lambda row: int(float(row["horizon_hours"])),
-    )
-    oracle = sorted(
-        [row for row in rows if row["method"] == "oracle"],
-        key=lambda row: int(float(row["horizon_hours"])),
-    )
-    if not causal:
-        raise RuntimeError("No causal_forecast_direct_reserve rows were generated.")
+    if not knobs.RERUN_FROM_SOURCE:
+        print("RERUN_FROM_SOURCE is False; reading an existing controlled run.")
+    rows = run_or_load_horizons()
 
-    benchmark_revenue = float(causal[0]["constant_output_100mw_revenue_metric"])
-    benchmark_cove = float(causal[0]["constant_output_100mw_cove"])
-    print(f"100 MW benchmark revenue metric: {benchmark_revenue:,.2f}")
-    print(f"100 MW benchmark COVE:           {benchmark_cove:.6f}")
-    print()
-    print(f"{'Planning':>10} {'COVE':>10} {'COVE reduction %':>12} {'Revenue metric':>18} {'Raw rev gain':>13} {'Final SoC':>12}")
-    print("-" * 86)
-    for row in causal:
-        raw_gain = raw_revenue_gain_vs_100mw(row)
+    benchmark_revenue = float(rows[0]["100mw_baseload_revenue"])
+    benchmark_cove = float(rows[0]["100mw_baseload_cove"])
+    print(f"\n100 MW benchmark revenue: {benchmark_revenue:,.2f}")
+    print(f"100 MW benchmark COVE:    {benchmark_cove:.6f}\n")
+    print(f"{'Horizon':>9} {'COVE':>12} {'COVE reduction':>16} {'Revenue metric':>20} {'Final SoC':>12}")
+    print("-" * 75)
+    for row in rows:
         print(
             f"{int(float(row['horizon_hours'])):>6} h "
-            f"{float(row['cove']):>10.6f} "
-            f"{(cove_gain_vs_100mw(row) or 0.0):>12.2f} "
-            f"{float(row['revenue_metric']):>18,.2f} "
-            f"{'' if raw_gain is None else f'{raw_gain:.2f}%':>13} "
+            f"{float(row['dispatch_cove_index']):>12.6f} "
+            f"{float(row['cove_reduction_vs_100mw_baseload_pct']):>15.2f}% "
+            f"{float(row['dispatch_revenue']):>20,.2f} "
             f"{float(row['final_soc']):>12.2f}"
         )
 
-    best = max(causal, key=lambda row: cove_gain_vs_100mw(row) or float("-inf"))
-    print("\nBest deterministic case:")
+    best = max(rows, key=lambda row: float(row["cove_reduction_vs_100mw_baseload_pct"]))
     print(
-        f"  {int(float(best['horizon_hours']))} h, "
-        f"{(cove_gain_vs_100mw(best) or 0.0):.2f}% COVE reduction vs 100 MW benchmark"
+        f"\nBest controlled horizon: {int(float(best['horizon_hours']))} h, "
+        f"{float(best['cove_reduction_vs_100mw_baseload_pct']):.2f}% COVE reduction vs 100 MW benchmark"
     )
 
-    wind_revenue = float(causal[0].get("wind_only_revenue_metric", causal[0]["baseload_revenue_metric"]))
-    wind_cove = float(causal[0].get("wind_only_cove", causal[0]["baseload_cove"]))
-    print("\nSecondary reference only: Wind-only baseline")
-    print("No storage; actual wind delivered directly up to the 249 MW grid cap.")
-    print(f"Wind-only revenue metric: {wind_revenue:,.2f}")
-    print(f"Wind-only COVE:           {wind_cove:.6f}")
-    print(f"{'Planning':>10} {'COVE reduction vs wind-only':>24} {'Raw rev gain vs wind-only':>28}")
-    print("-" * 66)
-    for row in causal:
-        raw_gain_wind = raw_revenue_gain_vs_wind(row)
+    wind_revenue = float(rows[0]["wind_only_revenue"])
+    wind_cove = float(rows[0]["wind_only_cove_index"])
+    print("\nSecondary reference: wind-only/no storage")
+    print(f"Wind-only revenue: {wind_revenue:,.2f}")
+    print(f"Wind-only COVE:    {wind_cove:.6f}")
+    for row in rows:
         print(
-            f"{int(float(row['horizon_hours'])):>6} h "
-            f"{cove_gain_vs_wind(row):>24.2f}% "
-            f"{'' if raw_gain_wind is None else f'{raw_gain_wind:.2f}%':>28}"
+            f"  {int(float(row['horizon_hours'])):>3} h: "
+            f"{float(row['revenue_gain_vs_wind_only_pct']):>7.2f}% revenue gain; "
+            f"{float(row['cove_reduction_vs_wind_only_pct']):>7.2f}% COVE reduction"
         )
 
-    if oracle:
-        best_oracle = max(oracle, key=lambda row: cove_gain_vs_100mw(row) or float("-inf"))
-        print("\nOracle context only:")
-        print(
-            f"  {int(float(best_oracle['horizon_hours']))} h, "
-            f"{(cove_gain_vs_100mw(best_oracle) or 0.0):.2f}% COVE reduction vs 100 MW benchmark"
-        )
-
-    figures = draw_figures(causal, oracle)
-    print("\nFiles updated:")
+    report_step3_equivalence(rows)
+    figures = draw_figures(rows)
+    print("\nFiles written:")
+    print(f"  {SUMMARY_FILE}")
     print(f"  {SUMMARY_ALIAS}")
-    print(f"  {RESULTS / 'forecast_dispatch_summary.csv'}")
     print(f"  {FULL_HOURLY}")
-    print("\nFigures saved:")
+    print("Figures written:")
     for path in figures:
         print(f"  {path}")
 

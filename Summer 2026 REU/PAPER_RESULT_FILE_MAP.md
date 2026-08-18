@@ -1,64 +1,45 @@
-# Paper Result File Map
+# Controlled Result File Map
 
-This file maps each current paper-facing number to the folder that generates it.
+Use only the files below for the frozen controlled Step 0-4 paper claims.
 
-Primary dispatch benchmark:
+| Claim | Frozen value | Source file |
+| --- | ---: | --- |
+| 100 MW benchmark revenue metric | 5,962,774.41 | `100 MW baseload/results/frozen_controlled/constant_output_baseload_100mw_2014_2023_summary.csv` |
+| 100 MW benchmark COVE | 8.622953 | same Step 0 summary |
+| Forecast winner | causal lag/ridge, RMSE 21.24 MW | `causal ridge regression/results/frozen_controlled/forecast_model_rmse_comparison.csv` |
+| Deterministic winner | 168 h, 35.37% COVE reduction | `rolling horizon/results/controlled_hourly_nowcast_from_knobs/controlled_single_forecast_horizon_summary.csv` |
+| Step 3 one-forecast row | exact Step 2 168 h match | `different scenarios/results/frozen_controlled/uncertainty_aware_summary.csv` |
+| Best multi-scenario row | 10 futures, 34.60% COVE reduction | same Step 3 summary |
+| Oracle ceiling | 168 h, 40.84% COVE reduction | `oracle upper bound/results/oracle_upper_bound_summary.csv` |
+| Cross-step QA | PASS | `results/final_controlled_ladder/final_controlled_ladder_QA.json` |
 
-```text
-100-MW Constant-Output Baseload Benchmark
-```
+## Complete Hourly Outputs
 
-Secondary reference:
-
-```text
-Wind-only / no storage
-```
-
-## Current Ladder
-
-| Step | Question | Command | Main result |
-| ---: | --- | --- | --- |
-| 0 | What is the primary benchmark? | `100 MW baseload/RUN_0_100MW_BASELOAD.py` | 100 MW benchmark built with zero QA violations |
-| 1 | Which power forecast is best? | `causal ridge regression/RUN_1_FORECAST_RMSE.py` | causal lag/ridge forecast, 21.24 MW RMSE |
-| 2 | Which deterministic horizon is best? | `rolling horizon/RUN_2_ROLLING_HORIZON.py` | 48 h, 20.63% COVE reduction vs 100 MW benchmark |
-| 3 | Do scenarios improve dispatch? | `different scenarios/RUN_3_SCENARIO_COMPARISON.py` | 3 scenarios, 40.18% COVE reduction vs 100 MW benchmark |
-| 4 | What is the finite-horizon perfect-information reference? | `oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | 168 h daily oracle, 40.87% COVE reduction vs 100 MW benchmark |
-
-## Result Files
-
-| Result | File |
+| Experiment | Files |
 | --- | --- |
-| 100 MW benchmark summary | `100 MW baseload/results/current_run_from_knobs/constant_output_baseload_100mw_2014_2023_summary.csv` |
-| 100 MW benchmark hourly CSV | `100 MW baseload/results/current_run_from_knobs/constant_output_baseload_100mw_2014_2023_hourly.csv` |
-| Forecast comparison | `causal ridge regression/results/current_run_from_knobs/forecast_model_rmse_comparison.csv` |
-| Causal forecast predictions | `causal ridge regression/results/current_run_from_knobs/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv` |
-| Deterministic horizon summary | `rolling horizon/results/current_run_from_knobs/forecast_dispatch_summary.csv` |
-| Deterministic hourly CSVs | `rolling horizon/results/current_run_from_knobs/forecast_dispatch_*.csv` |
-| Scenario enriched summary | `different scenarios/results/current_run_from_knobs/scenario_summary_vs_wind_only_and_100mw.csv` |
-| Scenario hourly CSVs | `different scenarios/results/current_run_from_knobs/*_labels.csv` |
-| Daily oracle summary | `oracle upper bound/results/current_run_from_knobs/oracle_upper_bound_summary.csv` |
-| Daily oracle hourly CSVs | `oracle upper bound/results/current_run_from_knobs/oracle_dispatch_*.csv` |
-| Hourly oracle reference summary | `oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_hourly_168h_ceiling_summary.csv` |
-| Hourly oracle reference CSV | `oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_dispatch_168h.csv` |
-| Data/config audit | `audit/summer_2026_reu_data_config_audit.csv` |
+| Step 0 benchmark | `100 MW baseload/results/frozen_controlled/constant_output_baseload_100mw_2014_2023_hourly.csv` |
+| Step 2 horizons | `rolling horizon/results/full_hourly_outputs/single_forecast_*h_hourly.csv` |
+| Step 3 scenarios | `different scenarios/results/frozen_controlled/*_labels.csv` |
+| Step 4 Oracle | `oracle upper bound/results/full_hourly_outputs/oracle_dispatch_*h.csv` |
 
-## Current Numbers
+## Reproduction Entry Points
 
-| Case | Main metric |
-| --- | ---: |
-| 100 MW benchmark, Step 2/4 period | revenue metric 5,981,942.95; COVE 8.595322 |
-| Causal lag/ridge forecast | 21.24 MW RMSE |
-| Best deterministic case | 48 h, 20.63% COVE reduction vs 100 MW benchmark |
-| Best scenario case | 3 scenarios, 40.18% COVE reduction vs 100 MW benchmark |
-| Best daily oracle | 168 h, 40.87% COVE reduction vs 100 MW benchmark |
-| Hourly oracle reference | 168 h, 40.85% COVE reduction vs 100 MW benchmark |
+| Step | Runner | Knobs |
+| ---: | --- | --- |
+| 0 | `100 MW baseload/RUN_0_100MW_BASELOAD.py` | `100 MW baseload/EXPERIMENT_KNOBS.py` |
+| 1 | `causal ridge regression/RUN_1_FORECAST_RMSE.py` | `causal ridge regression/EXPERIMENT_KNOBS.py` |
+| 2 | `rolling horizon/RUN_2_ROLLING_HORIZON.py` | `rolling horizon/EXPERIMENT_KNOBS.py` |
+| 3 | `different scenarios/RUN_3_SCENARIO_COMPARISON.py` | `different scenarios/EXPERIMENT_KNOBS.py` |
+| 4 | `oracle upper bound/RUN_4_ORACLE_UPPER_BOUND.py` | `oracle upper bound/EXPERIMENT_KNOBS.py` |
 
-## QA Status
+## Verification
 
-`AUDIT_DATA_CONFIG.py` checked the active hourly CSVs for SoC bounds, charge and
-discharge limits, grid cap, and delivered-power consistency.
-
-```text
-Audited hourly files: 16
-Passed common 100 MW / 10 h checks: 16/16
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch"
+./venv/bin/python "Summer 2026 REU/common/validate_controlled_ladder.py"
 ```
+
+The validator confirms one benchmark definition, matching selected forecast
+fingerprints, exact Step 2/Step 3 one-forecast equality, annual/final 600 MWh
+SoC, and zero physical QA violations. The separate data/config audit reports
+14/14 controlled hourly files passing the common 100 MW / 10 h checks.

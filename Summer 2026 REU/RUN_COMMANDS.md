@@ -1,190 +1,83 @@
-# Summer 2026 REU Run Commands
+# Controlled Step 0-4 Commands
 
-Primary comparison for dispatch results:
+Run each command from its listed folder. Every dispatch step uses the frozen
+100 MW / 10 h CAES configuration, hourly realized execution, chronological SoC,
+and the final 600 MWh target described in the folder README.
 
-```text
-100-MW Constant-Output Baseload Benchmark
-```
-
-Wind-only/no-storage is printed only as secondary reference information.
-
-## Step 0 - 100 MW Constant-Output Baseload Benchmark
+## Step 0: 100 MW Benchmark
 
 ```bash
 cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/100 MW baseload"
 ../../venv/bin/python RUN_0_100MW_BASELOAD.py
 ```
 
-What it runs:
-
-- the rule-based 100 MW storage benchmark;
-- 2020 same-year oracle checks;
-- the 2014-2023 100 MW benchmark used for comparison tables.
-
-Important files:
+Main outputs:
 
 ```text
-100 MW baseload/EXPERIMENT_KNOBS.py
-100 MW baseload/results/current_run_from_knobs/constant_output_baseload_100mw_2014_2023_hourly.csv
-100 MW baseload/results/current_run_from_knobs/constant_output_baseload_100mw_2014_2023_summary.csv
+results/frozen_controlled/constant_output_baseload_100mw_2014_2023_hourly.csv
+results/frozen_controlled/constant_output_baseload_100mw_2014_2023_summary.csv
 ```
 
-## Step 1 - Forecast RMSE Comparison
+## Step 1: Forecast Comparison
 
 ```bash
 cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/causal ridge regression"
 ../../venv/bin/python RUN_1_FORECAST_RMSE.py
 ```
 
-Current best:
+The causal lag/ridge model is the winner at 21.24 MW one-hour RMSE. Steps 2
+and 3 use its frozen direct-lead forecast family and verify the same forecast
+matrix with SHA-256 fingerprint
+`318cdac27903e562204f1c78701745dbddb55edd32dd25459d7c79287a62fc91`.
 
-```text
-causal_lag_prediction_mw RMSE = 21.24 MW
-```
-
-Important files:
-
-```text
-causal ridge regression/EXPERIMENT_KNOBS.py
-causal ridge regression/results/current_run_from_knobs/forecast_model_rmse_comparison.csv
-causal ridge regression/results/current_run_from_knobs/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv
-```
-
-## Step 2 - Deterministic Forecast-Driven Rolling-Horizon MILP
+## Step 2: Deterministic Horizon Sweep
 
 ```bash
 cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/rolling horizon"
 ../../venv/bin/python RUN_2_ROLLING_HORIZON.py
 ```
 
-Current best:
+This changes only `HORIZONS = [24, 48, 72, 168]`. The controlled winner is
+168 hours. Complete hourly CSVs are copied to `results/full_hourly_outputs/`.
 
-```text
-48 h horizon
-COVE reduction vs 100 MW benchmark = 20.63%
-Revenue metric = 7,536,849.56
-```
-
-This is the Step 2 deterministic horizon-sweep result. It is not the same
-as the Step 3 `1 forecast` scenario-runner reference.
-
-Important files:
-
-```text
-rolling horizon/EXPERIMENT_KNOBS.py
-rolling horizon/results/current_run_from_knobs/forecast_dispatch_summary.csv
-rolling horizon/results/current_run_from_knobs/forecast_dispatch_48h.csv
-```
-
-Custom horizon example:
-
-```bash
-../../venv/bin/python code/forecast_backtest_rolling_horizons.py \
-  --direct-reserve-mw 75 \
-  --horizons 35 \
-  --execution-step-hours 24 \
-  --replanning-interval-hours 24 \
-  --storage-power-mw 100 \
-  --storage-duration-h 10 \
-  --primary-baseline-storage-duration-h 10 \
-  --grid-cap-mw 249 \
-  --out-dir "results/test_35h"
-```
-
-## Step 3 - Scenario-Based Rolling-Horizon MILP
+## Step 3: Scenario-Count Sweep
 
 ```bash
 cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scenarios"
 ../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
 ```
 
-Current best:
+This keeps the Step 2 winning horizon and controller, then changes only the
+number of futures: 1, 3, 5, 7, and 10. Leave `MAX_ORIGINS = None` for the full
+87,417-hour experiment. The full rerun is intentionally slow.
 
-```text
-3 scenarios
-COVE reduction vs 100 MW benchmark = 40.18%
-Revenue gain vs 100 MW benchmark = 67.16%
-```
-
-The Step 3 `1 forecast` row is the matched point-forecast reference inside
-the scenario runner. It uses current-hour nowcast, nowcast-gated recourse,
-and first-action execution logic, so compare it only with the 3/5/7/10
-scenario rows.
-
-Important files:
-
-```text
-different scenarios/EXPERIMENT_KNOBS.py
-different scenarios/results/current_run_from_knobs/scenario_summary_vs_wind_only_and_100mw.csv
-different scenarios/results/current_run_from_knobs/three_scenario_expected_nowcast_gated_labels.csv
-```
-
-To run a full scenario recompute, set this in
-`different scenarios/EXPERIMENT_KNOBS.py`:
-
-```python
-RERUN_FROM_SOURCE = True
-MAX_ORIGINS = None
-```
-
-Then rerun `RUN_3_SCENARIO_COMPARISON.py`.
-
-## Step 4 - Perfect-Information Oracle Rolling-Horizon MILP
+## Step 4: Oracle Horizon Sweep
 
 ```bash
 cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
 ../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
 ```
 
-This prints two oracle blocks:
+All rows execute one hour and replan hourly. The Oracle replaces forecasts with
+actual future wind and price inside its 24/48/72/168-hour window.
 
-```text
-Daily-replan oracle reference: execute 24 hours, then replan.
-Hourly-replan oracle reference: execute 1 hour, then replan.
-```
+## Final Cross-Step QA
 
-Current best daily oracle:
-
-```text
-168 h horizon
-COVE reduction vs 100 MW benchmark = 40.87%
-Revenue metric = 10,116,705.90
-```
-
-Current hourly oracle reference:
-
-```text
-168 h horizon
-COVE reduction vs 100 MW benchmark = 40.85%
-Revenue metric = 10,127,810.67
-```
-
-Important files:
-
-```text
-oracle upper bound/EXPERIMENT_KNOBS.py
-oracle upper bound/results/current_run_from_knobs/oracle_upper_bound_summary.csv
-oracle upper bound/results/current_run_from_knobs/oracle_dispatch_168h.csv
-oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_hourly_168h_ceiling_summary.csv
-oracle upper bound/results/hourly_168h_oracle_ceiling/oracle_dispatch_168h.csv
-```
-
-## Audit
+Run after all five steps exist:
 
 ```bash
-cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU"
-../venv/bin/python AUDIT_DATA_CONFIG.py
+cd "/Users/davidvalenta/deep-wind-model-dispatch"
+./venv/bin/python "Summer 2026 REU/common/validate_controlled_ladder.py"
 ```
 
-Current result:
+The validator rejects the package if benchmark COVE/revenue drift, annual or
+final SoC misses 600 MWh, physical constraints fail, forecast fingerprints
+differ, or the Step 2 winning one-forecast row does not exactly match Step 3.
 
-```text
-Audited hourly files: 16
-Passed common 100 MW / 10 h checks: 16/16
-```
+## Display Saved Results Without Recomputing
 
-Audit file:
-
-```text
-audit/summer_2026_reu_data_config_audit.csv
-```
+Every paper-facing `EXPERIMENT_KNOBS.py` is frozen with
+`RERUN_FROM_SOURCE = False`. Running the normal command therefore rebuilds the
+terminal table and figures immediately from the committed CSVs. Set the value
+to `True` only when you intentionally want a complete source rerun; restore it
+to `False` before committing paper results.

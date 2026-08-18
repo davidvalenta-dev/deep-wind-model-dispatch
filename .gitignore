@@ -212,3 +212,15 @@ data/newest_pyron_shaped/pyron_proxy_continuation_2024010100_*
 Summer 2026 REU/*/results/current_run_from_knobs/
 Summer 2026 REU/*/results/full_rebuild*/
 Summer 2026 REU/*/results/test_*/
+# Per-horizon diagnostic images duplicate the canonical top-level figures.
+Summer 2026 REU/rolling horizon/results/controlled_hourly_nowcast_from_knobs/horizon_*/figure_*.png
+
+# Temporary workers and presentation/render outputs are not paper results.
+Summer 2026 REU/different scenarios/results/parallel_*/
+Summer 2026 REU/oracle upper bound/results/hourly_168h_oracle_ceiling/
+output/
+outputs/
+tmp/
+
+# Exploratory DAM proxy data is outside the frozen Step 0-4 experiment.
+data/processed/dataset_1980_2023_with_dam_prices_for_forecast.csv

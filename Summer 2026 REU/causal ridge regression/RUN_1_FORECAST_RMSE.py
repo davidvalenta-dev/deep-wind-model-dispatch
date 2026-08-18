@@ -36,6 +36,7 @@ RESULTS = HERE / "results"
 FIGURES = HERE / "figures"
 RMSE_FILE = Path(knobs.RMSE_OUTPUT)
 COMPARE_SCRIPT = HERE / "code" / "compare_forecast_rmse.py"
+DISPATCH_FORECAST_SCRIPT = HERE / "code" / "build_dispatch_causal_ridge.py"
 PREDICTIONS_FILE = Path(knobs.CAUSAL_OUTPUT_DIR) / "causal_lag_forecast_predictions.csv"
 
 
@@ -71,7 +72,24 @@ def rebuild_rmse_table() -> None:
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     RMSE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    rebuild_rmse_table()
+    if getattr(knobs, "RERUN_FROM_SOURCE", True):
+        rebuild_rmse_table()
+        dispatch_cmd = [
+            sys.executable,
+            str(DISPATCH_FORECAST_SCRIPT),
+            "--out-dir",
+            str(knobs.DISPATCH_FORECAST_OUTPUT_DIR),
+            "--max-horizon-hours",
+            str(knobs.DISPATCH_FORECAST_MAX_HORIZON_HOURS),
+            "--train-origin-stride",
+            str(knobs.DISPATCH_FORECAST_TRAIN_ORIGIN_STRIDE),
+        ]
+        print("\nBuilding the exact frozen multi-lead causal ridge used by Steps 2 and 3:")
+        print(" ".join(dispatch_cmd))
+        subprocess.run(dispatch_cmd, cwd=HERE, check=True)
+    else:
+        print("STEP 1: reading the saved frozen forecast CSVs (no retraining).")
+        print("Set RERUN_FROM_SOURCE = True in EXPERIMENT_KNOBS.py to rebuild them.\n")
     rows = load_rows(RMSE_FILE)
     rows = sorted(rows, key=lambda row: float(row["rmse_mw"]))
 

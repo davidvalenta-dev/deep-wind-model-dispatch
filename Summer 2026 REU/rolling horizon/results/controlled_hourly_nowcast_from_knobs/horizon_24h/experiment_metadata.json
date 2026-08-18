@@ -1,0 +1,165 @@
+{
+  "data_path": "/Users/davidvalenta/deep-wind-model-dispatch/data/processed/dataset_1980-2023_withloads_fix.csv",
+  "training_period": "1980-01-01 01:00:00 through 2013-12-31 23:00:00",
+  "center_forecast_training_period": "1980-01-01 01:00:00 through 2013-12-31 23:00:00",
+  "calibration_mode": "in_sample_residual",
+  "calibration_period": "1980-01-08 01:00:00 through 2013-12-31 23:00:00",
+  "test_start": "2014-01-01 00:00:00",
+  "test_end": "2023-12-23 05:00:00",
+  "horizon_hours": 24,
+  "forecast_model_max_horizon_hours": 168,
+  "evaluation_cutoff_horizon_hours": 168,
+  "non_anticipativity": "The first 1 hours of direct wind, storage charge, storage discharge, and mode are shared across scenarios; later horizon actions are recourse because the controller replans after the executed block.",
+  "execution_rule": "The chosen storage plan is executed for 1 hours. Direct wind to grid is adjusted using actual realized wind and grid capacity.",
+  "replanning_interval_hours": 1,
+  "direct_reserve_mw": 75.0,
+  "train_origin_stride": 24,
+  "residual_origin_stride": 1,
+  "nowcast_first_hour": true,
+  "gate_margin": 0.0,
+  "baseline_target_mw_from_training": 85.67800432903339,
+  "fallback_target_mw": 85.67800432903339,
+  "gate_single_forecast": true,
+  "scenario_specs": {
+    "three_scenario_expected": {
+      "weights": [
+        0.5,
+        0.25,
+        0.25
+      ],
+      "wind_quantiles": [
+        0.5,
+        0.1,
+        0.9
+      ],
+      "price_quantiles": [
+        0.5,
+        0.9,
+        0.1
+      ],
+      "risk_lambda": 0.0
+    },
+    "three_scenario_risk25": {
+      "weights": [
+        0.5,
+        0.25,
+        0.25
+      ],
+      "wind_quantiles": [
+        0.5,
+        0.1,
+        0.9
+      ],
+      "price_quantiles": [
+        0.5,
+        0.9,
+        0.1
+      ],
+      "risk_lambda": 0.25
+    },
+    "five_scenario_expected": {
+      "weights": [
+        0.4,
+        0.15,
+        0.15,
+        0.15,
+        0.15
+      ],
+      "wind_quantiles": [
+        0.5,
+        0.1,
+        0.9,
+        0.1,
+        0.9
+      ],
+      "price_quantiles": [
+        0.5,
+        0.9,
+        0.1,
+        0.1,
+        0.9
+      ],
+      "risk_lambda": 0.0
+    },
+    "seven_scenario_expected": {
+      "weights": [
+        0.28,
+        0.12,
+        0.12,
+        0.12,
+        0.12,
+        0.12,
+        0.12
+      ],
+      "wind_quantiles": [
+        0.5,
+        0.1,
+        0.9,
+        0.1,
+        0.9,
+        0.25,
+        0.75
+      ],
+      "price_quantiles": [
+        0.5,
+        0.9,
+        0.1,
+        0.1,
+        0.9,
+        0.75,
+        0.25
+      ],
+      "risk_lambda": 0.0
+    },
+    "ten_scenario_expected": {
+      "weights": [
+        0.22,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.08,
+        0.08,
+        0.08,
+        0.08,
+        0.06
+      ],
+      "wind_quantiles": [
+        0.5,
+        0.05,
+        0.95,
+        0.05,
+        0.95,
+        0.25,
+        0.75,
+        0.25,
+        0.75,
+        0.5
+      ],
+      "price_quantiles": [
+        0.5,
+        0.95,
+        0.05,
+        0.05,
+        0.95,
+        0.75,
+        0.25,
+        0.25,
+        0.75,
+        0.95
+      ],
+      "risk_lambda": 0.0
+    }
+  },
+  "storage_constraints": {
+    "power_mw": 100.0,
+    "duration_hours": 10.0,
+    "cmax_mwh": 1000.0,
+    "cmin_mwh": 199.99999999999994,
+    "soc0_mwh": 600.0,
+    "rte": 0.55,
+    "grid_cap_mw": 249.0,
+    "annual_target_soc_mwh": null,
+    "final_target_soc_mwh": 600.0
+  }
+}

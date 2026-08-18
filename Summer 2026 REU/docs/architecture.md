@@ -34,14 +34,8 @@ This layer converts an optimized plan into realized operation. The controller
 solves a horizon, executes the committed action block, updates realized SoC, and
 then replans from the new battery state.
 
-Current daily-replan ladder:
+Current controlled ladder:
 
 ```text
-solve H hours -> execute 24 hours -> update SoC -> replan next day
-```
-
-Separate oracle reference:
-
-```text
-solve 168 hours -> execute 1 hour -> update SoC -> replan next hour
+solve H hours -> execute 1 hour -> update realized SoC -> replan next hour
 ```

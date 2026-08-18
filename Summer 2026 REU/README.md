@@ -1,124 +1,115 @@
-# Summer 2026 REU
+# Summer 2026 REU: Controlled Wind-Storage Experiment Ladder
 
-This folder is the clean reproduction ladder for the Summer 2026 hybrid
-wind-storage dispatch work. Each major result has its own folder, its own
-`EXPERIMENT_KNOBS.py` settings file, and one front-door `RUN_*.py` command.
+This folder is the final controlled Step 0-4 workflow for forecasting and
+rolling-horizon dispatch at the Pyron wind-farm case study. Each step has one
+front-door runner, one knobs file, complete hourly outputs, figures, and a
+README explaining what changes and what stays fixed.
 
-The primary benchmark is now the **100-MW Constant-Output Baseload Benchmark**.
-That means every Step 2, Step 3, and Step 4 table reports COVE reduction and revenue
-gain against the rule-based 100 MW wind-storage benchmark first. The wind-only
-case is still printed, but only as secondary reference information.
+## Research Ladder
 
-## Common Storage Configuration
+| Step | Question | What changes |
+| ---: | --- | --- |
+| 0 | How does a simple 100 MW constant-output wind-storage rule perform? | Establishes the primary same-storage benchmark. |
+| 1 | Which causal power forecast has the lowest RMSE? | Forecast method only; no dispatch or COVE. |
+| 2 | How far should one-forecast Gurobi look ahead? | Planning horizon: 24/48/72/168 h. |
+| 3 | Do several fixed forecast futures beat one forecast? | Scenario count: 1/3/5/7/10 at the Step 2 winning horizon. |
+| 4 | What is the finite-window perfect-information ceiling? | Forecasts are replaced with realized future wind/price. |
 
-All paper-facing Summer 2026 runs use the same CAES-equivalent setup:
+## Frozen Physical and Execution Setup
 
 | Setting | Value |
 | --- | ---: |
-| Storage power | 100 MW charge / 100 MW discharge |
-| Storage duration | 10 h |
-| Energy capacity | 1,000 MWh |
-| Minimum SoC | 200 MWh |
-| Maximum SoC | 1,000 MWh |
+| Evaluation period | 2014-01-01 00:00 through 2023-12-23 05:00 |
+| Evaluated hours | 87,417 |
+| Storage | 100 MW / 10 h CAES-equivalent system |
+| Capacity and SoC bounds | 1,000 MWh; 200-1,000 MWh |
 | Initial SoC | 600 MWh |
-| RTE convention | 55%, applied on discharge |
+| Completed year-end and final SoC | 600 MWh, physically reached without resets |
+| Efficiency | RTE 0.55, applied on discharge |
 | Grid export cap | 249 MW |
 | Grid charging | Not allowed |
+| Realized execution / replanning | 1 hour / 1 hour |
+| Primary benchmark | 100-MW Constant-Output Baseload Benchmark |
+| Secondary reference | Wind-only/no-storage |
 
-## Folder Map
+The deterministic and scenario cases also share the current-hour nowcast,
+nowcast-gated recourse, 75 MW direct reserve, causal-ridge forecast family, and
+forecast fingerprint at the selected horizon. The Oracle keeps the same
+physical and timing constraints but replaces forecasts with perfect future
+values and therefore does not need the forecast safety heuristics.
 
-| Step | Folder | Purpose | Command |
-| ---: | --- | --- | --- |
-| 0 | `100 MW baseload` | Build the primary 100 MW benchmark and same-year oracle checks | `../../venv/bin/python RUN_0_100MW_BASELOAD.py` |
-| 1 | `causal ridge regression` | Compare forecast models by RMSE | `../../venv/bin/python RUN_1_FORECAST_RMSE.py` |
-| 2 | `rolling horizon` | Deterministic Forecast-Driven Rolling-Horizon MILP | `../../venv/bin/python RUN_2_ROLLING_HORIZON.py` |
-| 3 | `different scenarios` | Scenario-Based Rolling-Horizon MILP | `../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py` |
-| 4 | `oracle upper bound` | Perfect-Information Oracle Rolling-Horizon MILP | `../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py` |
-| QA | `audit` | Data/config audit written by `AUDIT_DATA_CONFIG.py` | `../venv/bin/python AUDIT_DATA_CONFIG.py` |
+## Final Controlled Results
 
-## How To Change A Run
+The primary benchmark has normalized price-weighted revenue metric
+**5,962,774.41** and COVE **8.622953**. The annualized same-storage cost numerator
+is **$51,416,725**.
 
-Use the same pattern in every folder:
+| Experiment | Best case | Revenue metric | COVE | COVE reduction vs 100 MW |
+| --- | --- | ---: | ---: | ---: |
+| Step 1 forecast | Causal lag/ridge | RMSE 21.24 MW | n/a | n/a |
+| Step 2 deterministic | 168 h | 9,226,453.36 | 5.572751 | 35.37% |
+| Step 3 scenario sweep | 1 forecast, 168 h | 9,226,453.36 | 5.572751 | 35.37% |
+| Best multi-scenario row | 10 futures, 168 h | 9,117,510.56 | 5.639338 | 34.60% |
+| Step 4 rolling-window Oracle | 168 h | 10,079,788.48 | 5.100973 | 40.84% |
 
-```text
-1. Open EXPERIMENT_KNOBS.py.
-2. Change the setting you care about.
-3. Run that folder's RUN_*.py script.
-4. Read the new output in results/current_run_from_knobs/.
-```
+The central controlled finding is not that more scenarios automatically win.
+The one-forecast 168-hour controller outperforms every tested fixed-quantile
+multi-scenario controller. The Oracle is about 5.47 percentage points better,
+showing that useful value remains if forecast information improves. The Oracle
+also nearly plateaus after 48-72 hours, so longer perfect look-ahead has sharply
+diminishing returns.
 
-Examples:
-
-| Change you want | Folder | Knob |
-| --- | --- | --- |
-| Test a 35-hour deterministic horizon | `rolling horizon` | `HORIZONS = [35]` |
-| Test a 35-hour oracle horizon | `oracle upper bound` | `HORIZONS = [35]` |
-| Change starting SoC | dispatch folders | `INITIAL_SOC_MWH = ...` |
-| Change storage duration | dispatch folders | `STORAGE_DURATION_H = ...` |
-| Quick scenario test | `different scenarios` | `MAX_ORIGINS = 168` |
-
-Leave `MAX_ORIGINS = None` for the full scenario run.
-
-## Current Results
-
-These are the current rerun outputs using the common 100 MW / 10 h CAES setup.
-
-| Step | Main result |
-| --- | --- |
-| Step 0 | 100 MW benchmark, 2014-2023 normalized revenue metric `5,981,942.95`; COVE `8.595322` for the Step 2/4 daily period |
-| Step 1 | Best forecast: causal lag/ridge forecast, RMSE `21.24 MW` |
-| Step 2 | Best deterministic case: 48 h horizon, `20.63%` COVE reduction vs 100 MW benchmark |
-| Step 3 | Highest reported scenario case: 3 scenarios, `40.18%` COVE reduction and `67.16%` revenue gain vs 100 MW benchmark |
-| Step 4 daily oracle | Best daily-replan oracle: 168 h, `40.87%` COVE reduction vs 100 MW benchmark |
-| Step 4 hourly oracle | Separate 168 h hourly-replan oracle reference: `40.85%` COVE reduction vs 100 MW benchmark |
-
-Wind-only is still shown at the bottom of Step 2, Step 3, and Step 4 output.
-It is useful context, but it is not the primary benchmark anymore.
-
-## Step 2 48 h vs Step 3 "1 Forecast"
-
-The `20.63%` deterministic result and the `37.23%` Step 3 one-forecast
-result are both valid, but they are **not the same computational case**.
-
-| Value | Source | What it means |
-| --- | --- | --- |
-| `20.63%` | `rolling horizon/results/current_run_from_knobs/forecast_dispatch_summary.csv` | Step 2 deterministic horizon sweep: one causal forecast path, 48 h planning horizon, 24 h execution/replanning, and the 75 MW direct-reserve policy |
-| `37.23%` | `different scenarios/results/current_run_from_knobs/uncertainty_aware_summary.csv` | Step 3 matched one-forecast reference inside the scenario runner: current-hour nowcast plus causal ridge future, nowcast-gated recourse, and first-action execution |
-
-Use the Step 3 one-forecast row only when comparing against 3, 5, 7, and
-10 scenarios. Use the Step 2 48 h row only when comparing deterministic
-planning horizons.
-
-## Terminology
-
-| New term | Meaning |
-| --- | --- |
-| 100-MW Constant-Output Baseload Benchmark | Rule-based storage benchmark that tries to deliver 100 MW each hour |
-| Wind-only baseline | No storage; actual wind goes directly to grid up to the 249 MW cap |
-| Deterministic Forecast-Driven Rolling-Horizon MILP | One forecast path goes into Gurobi |
-| Scenario-Based Rolling-Horizon MILP | Multiple plausible futures go into Gurobi with shared first action |
-| H-hour Perfect-Information Oracle Rolling-Horizon MILP | Gurobi sees actual future wind and price for H hours |
-| Full-Horizon Oracle MILP | Perfect-information full-period reference, used only as a theoretical benchmark if reported |
-
-## QA
-
-Run this from inside `Summer 2026 REU`:
+## Run the Frozen Ladder
 
 ```bash
-../venv/bin/python AUDIT_DATA_CONFIG.py
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/100 MW baseload"
+../../venv/bin/python RUN_0_100MW_BASELOAD.py
+
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/causal ridge regression"
+../../venv/bin/python RUN_1_FORECAST_RMSE.py
+
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/rolling horizon"
+../../venv/bin/python RUN_2_ROLLING_HORIZON.py
+
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/different scenarios"
+../../venv/bin/python RUN_3_SCENARIO_COMPARISON.py
+
+cd "/Users/davidvalenta/deep-wind-model-dispatch/Summer 2026 REU/oracle upper bound"
+../../venv/bin/python RUN_4_ORACLE_UPPER_BOUND.py
 ```
 
-Current audit result:
+All committed knobs use `RERUN_FROM_SOURCE = False`, so the commands immediately
+read the frozen CSVs, print the canonical tables, and regenerate the current
+figures. Set that value to `True` only for an intentional source reproduction.
+Step 3 is computationally expensive because a full rerun solves thousands of
+168-hour scenario MILPs.
 
-```text
-Audited hourly files: 16
-Passed common 100 MW / 10 h checks: 16/16
+## Final QA
+
+```bash
+cd "/Users/davidvalenta/deep-wind-model-dispatch"
+./venv/bin/python "Summer 2026 REU/common/validate_controlled_ladder.py"
 ```
 
-The audit CSV is:
+The validator currently passes. It confirms:
+
+- one benchmark revenue and COVE definition across Steps 0, 2, 3, and 4;
+- Step 2 and Step 3 exact equality at the selected 168-hour one-forecast case;
+- identical selected-horizon forecast SHA-256;
+- annual and final realized SoC of 600 MWh;
+- zero physical QA violations;
+- complete requested horizon and scenario tables.
+
+Machine-readable outputs:
 
 ```text
+results/final_controlled_ladder/final_controlled_ladder_manifest.csv
+results/final_controlled_ladder/final_controlled_ladder_QA.json
 audit/summer_2026_reu_data_config_audit.csv
 ```
 
-See `RUN_COMMANDS.md` for exact commands and output locations.
+The broader file/config audit also passes all 14 controlled hourly files under the
+common 100 MW / 10 h checks.
+
+See `RUN_COMMANDS.md` and each subfolder README for exact output paths and code
+maps.

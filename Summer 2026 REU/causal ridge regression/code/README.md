@@ -29,8 +29,8 @@ Outputs:
 
 | Output | Meaning |
 | --- | --- |
-| `../results/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv` | Hourly causal lag/ridge predictions. |
-| `../results/causal_lag_forecast_outputs/causal_lag_forecast_metrics.csv` | Train/validation/test metrics for causal lag/ridge and simple baselines. |
-| `../results/forecast_model_rmse_comparison.csv` | Final RMSE comparison table used by `RUN_1_FORECAST_RMSE.py`. |
+| `../results/frozen_controlled/causal_lag_forecast_outputs/causal_lag_forecast_predictions.csv` | Hourly causal lag/ridge predictions. |
+| `../results/frozen_controlled/causal_lag_forecast_outputs/causal_lag_forecast_metrics.csv` | Train/validation/test metrics for causal lag/ridge and simple baselines. |
+| `../results/frozen_controlled/forecast_model_rmse_comparison.csv` | Final RMSE comparison table used by `RUN_1_FORECAST_RMSE.py`. |
 
 This folder intentionally contains no Gurobi or dispatch code. Dispatch starts in the rolling-horizon folder.

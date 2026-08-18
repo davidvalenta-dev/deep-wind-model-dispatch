@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -21,12 +22,14 @@ from gurobipy import GRB
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BASE_DIR = Path(__file__).resolve().parent
-OUT = BASE_DIR.parents[0] / "results" / "scenario_48h_full_ladder"
+OUT = BASE_DIR.parents[0] / "results" / "frozen_controlled"
 
 sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(REPO_ROOT / "strategy_model" / "src"))
+sys.path.insert(0, str(REPO_ROOT / "Summer 2026 REU" / "common"))
 import util  # noqa: E402
 import run_nora_matching_forecast_horizons as base  # noqa: E402
+from annual_soc import next_target_corridor  # noqa: E402
 from run_best_forecast_dispatch_search import (  # noqa: E402
     PRICE_CLIP,
     candidate_summary,
@@ -114,6 +117,22 @@ def build_forecasts(
     return wind_center, price_center, generation_models, price_models
 
 
+def forecast_fingerprint(
+    wind_center: np.ndarray,
+    price_center: np.ndarray,
+    generation_models: list[base.DirectForecastModel],
+    price_models: list[base.DirectForecastModel],
+) -> str:
+    """Stable proof that Step 2 and Step 3 used identical frozen forecasts."""
+    digest = hashlib.sha256()
+    for array in (wind_center, price_center):
+        digest.update(np.ascontiguousarray(array, dtype=np.float64).tobytes())
+    for model in [*generation_models, *price_models]:
+        for array in (model.feature_mean, model.feature_scale, model.coefficients):
+            digest.update(np.ascontiguousarray(array, dtype=np.float64).tobytes())
+    return digest.hexdigest()
+
+
 def conformal_quantile(values: np.ndarray, q: float) -> np.ndarray:
     """Finite-sample split-conformal empirical quantile by forecast lead."""
     sorted_values = np.sort(values, axis=0)
@@ -192,6 +211,7 @@ def solve_scenario_window(
     start_soc: float,
     risk_lambda: float,
     execution_len: int,
+    soc_targets: dict[int, float] | None = None,
 ) -> dict[str, float]:
     scenario_count, hours = generation_scenarios.shape
     model = gp.Model("uncertainty_aware_dispatch")
@@ -208,7 +228,18 @@ def solve_scenario_window(
 
     for s in range(scenario_count):
         model.addConstr(soc[s, 0] == float(np.clip(start_soc, base.CMIN, base.CMAX)))
-        model.addConstr(soc[s, hours] == float(np.clip(start_soc, base.CMIN, base.CMAX)))
+        # The ordinary controller closes each planning window at its starting
+        # SoC. A required annual/final target supersedes that artificial
+        # rolling-window closure in windows that contain the physical boundary.
+        if not soc_targets:
+            model.addConstr(soc[s, hours] == float(np.clip(start_soc, base.CMIN, base.CMAX)))
+        for soc_index, target_soc in (soc_targets or {}).items():
+            if not 1 <= int(soc_index) <= hours:
+                raise ValueError(f"SoC target index {soc_index} is outside 1..{hours}")
+            model.addConstr(
+                soc[s, int(soc_index)] == float(np.clip(target_soc, base.CMIN, base.CMAX)),
+                name=f"soc_target_s{s}_i{int(soc_index)}",
+            )
 
         for t in range(hours):
             model.addConstr(gw[s, t] <= float(generation_scenarios[s, t]))
@@ -243,8 +274,21 @@ def solve_scenario_window(
         model.setObjective(expected_value, GRB.MAXIMIZE)
 
     model.optimize()
+    # A two-second limit is sufficient for almost every hourly MILP, but a
+    # rare difficult window can reach TIME_LIMIT before finding any feasible
+    # incumbent. Retry only that failure condition with the identical model,
+    # objective, and constraints. This changes computation time, not the
+    # experiment definition.
+    if model.Status == GRB.TIME_LIMIT and model.SolCount == 0:
+        model.Params.TimeLimit = 60.0
+        model.optimize()
     if model.Status not in (GRB.OPTIMAL, GRB.TIME_LIMIT):
         raise RuntimeError(f"Scenario Gurobi failed. Status={model.Status}")
+    if model.SolCount == 0:
+        raise RuntimeError(
+            "Scenario Gurobi produced no feasible incumbent after the retry. "
+            f"Status={model.Status}, scenarios={scenario_count}, hours={hours}"
+        )
 
     return {
         "charge": np.array([ch[0, t].X for t in range(hours)], dtype=float),
@@ -255,6 +299,106 @@ def solve_scenario_window(
         "runtime": float(model.Runtime),
         "status": int(model.Status),
     }
+
+
+def target_soc_indices(
+    timestamps: pd.Series,
+    origin: int,
+    horizon: int,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    evaluation_end_exclusive: int,
+) -> dict[int, float]:
+    """Map SoC indices in one planning window to required physical targets."""
+    targets: dict[int, float] = {}
+    window_end = min(origin + horizon, len(timestamps))
+    for absolute_index in range(origin, window_end):
+        stamp = pd.Timestamp(timestamps.iloc[absolute_index])
+        if (
+            annual_target_soc_mwh is not None
+            and stamp.month == 12
+            and stamp.day == 31
+            and stamp.hour == 23
+        ):
+            targets[absolute_index - origin + 1] = float(annual_target_soc_mwh)
+        if final_target_soc_mwh is not None and absolute_index == evaluation_end_exclusive - 1:
+            targets[absolute_index - origin + 1] = float(final_target_soc_mwh)
+    return targets
+
+
+def target_soc_qa(
+    labels: pd.DataFrame,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+) -> dict[str, float | int]:
+    timestamps = pd.to_datetime(labels["datetime"])
+    annual_mask = (
+        (timestamps.dt.month == 12)
+        & (timestamps.dt.day == 31)
+        & (timestamps.dt.hour == 23)
+    )
+    annual_errors = (
+        np.abs(labels.loc[annual_mask, "soc_end_mwh"].to_numpy(float) - float(annual_target_soc_mwh))
+        if annual_target_soc_mwh is not None and annual_mask.any()
+        else np.array([], dtype=float)
+    )
+    final_error = (
+        abs(float(labels["soc_end_mwh"].iloc[-1]) - float(final_target_soc_mwh))
+        if final_target_soc_mwh is not None and not labels.empty
+        else 0.0
+    )
+    return {
+        "annual_soc_target_mwh": math.nan if annual_target_soc_mwh is None else float(annual_target_soc_mwh),
+        "annual_soc_target_count": int(annual_mask.sum()),
+        "annual_soc_target_violation_count": int(np.sum(annual_errors > 1e-5)),
+        "annual_soc_target_max_abs_error": float(annual_errors.max()) if annual_errors.size else 0.0,
+        "final_soc_target_mwh": math.nan if final_target_soc_mwh is None else float(final_target_soc_mwh),
+        "final_soc_target_abs_error": float(final_error),
+        "final_soc_target_violation_count": int(final_error > 1e-5),
+    }
+
+
+def physical_constraint_qa(labels: pd.DataFrame) -> dict[str, float | int]:
+    generation = labels["actual_generation_mw"].to_numpy(float)
+    direct = labels["realized_direct_mw"].to_numpy(float)
+    charge = labels["realized_charge_mw"].to_numpy(float)
+    discharge = labels["realized_discharge_mw"].to_numpy(float)
+    delivered = labels["realized_delivered_mw"].to_numpy(float)
+    start = labels["soc_start_mwh"].to_numpy(float)
+    end = labels["soc_end_mwh"].to_numpy(float)
+    timestamps = pd.to_datetime(labels["datetime"])
+    hour_errors = (
+        np.abs(timestamps.diff().dropna().dt.total_seconds().to_numpy() / 3600.0 - 1.0)
+        if len(timestamps) > 1
+        else np.array([], dtype=float)
+    )
+    qa: dict[str, float | int] = {
+        "qa_max_wind_balance_violation": float(np.maximum(direct + charge - generation, 0.0).max()),
+        "qa_max_delivered_definition_violation": float(np.abs(delivered - direct - discharge).max()),
+        "qa_max_grid_violation": float(np.maximum(delivered - base.GRID_CAP, 0.0).max()),
+        "qa_max_charge_power_violation": float(np.maximum(charge - base.PS, 0.0).max()),
+        "qa_max_discharge_power_violation": float(np.maximum(discharge - base.PS, 0.0).max()),
+        "qa_max_simultaneous_charge_discharge": float(np.minimum(charge, discharge).max()),
+        "qa_max_available_energy_violation": float(
+            np.maximum(discharge - (start - base.CMIN) * base.RTE, 0.0).max()
+        ),
+        "qa_max_soc_update_violation": float(
+            np.abs(end - (start + charge - discharge / base.RTE)).max()
+        ),
+        "qa_max_soc_lower_violation": float(np.maximum(base.CMIN - np.minimum(start, end), 0.0).max()),
+        "qa_max_soc_upper_violation": float(np.maximum(np.maximum(start, end) - base.CMAX, 0.0).max()),
+        "qa_chronological_hour_error_count": int(np.sum(hour_errors > 1e-9)),
+    }
+    numeric_violations = [
+        float(value)
+        for key, value in qa.items()
+        if key.startswith("qa_max_")
+    ]
+    # Timestamp gaps are a separately reported source-data QA item. They are
+    # not counted as a storage-physics violation because no synthetic row or
+    # energy reset is introduced; SoC carries directly to the next record.
+    qa["qa_total_violation_count"] = int(sum(value > 1e-5 for value in numeric_violations))
+    return qa
 
 
 def apply_direct_reserve(action: dict, direct_reserve_mw: float) -> dict:
@@ -274,6 +418,11 @@ def execute_storage_block(
     action: dict,
     actual_generation: np.ndarray,
     start_soc: float,
+    timestamps: pd.Series,
+    final_timestamp: pd.Timestamp,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    annual_soc_settlement_hours: int,
 ) -> dict[str, np.ndarray]:
     n = len(actual_generation)
     direct = np.zeros(n, dtype=float)
@@ -283,6 +432,10 @@ def execute_storage_block(
     curtailment = np.zeros(n, dtype=float)
     storage = np.zeros(n + 1, dtype=float)
     mode = np.zeros(n, dtype=float)
+    target_active = np.zeros(n, dtype=float)
+    target_lower = np.full(n, np.nan, dtype=float)
+    target_upper = np.full(n, np.nan, dtype=float)
+    target_value = np.full(n, np.nan, dtype=float)
     storage[0] = float(np.clip(start_soc, base.CMIN, base.CMAX))
     planned_direct = np.asarray(action["direct"], dtype=float)
     planned_charge = np.asarray(action["charge"], dtype=float)
@@ -301,6 +454,94 @@ def execute_storage_block(
             available_by_soc_floor = max(0.0, (storage[t] - base.CMIN) * base.RTE)
             discharge[t] = min(float(planned_discharge[t]), base.PS, available_by_soc_floor)
             direct[t] = min(float(planned_direct[t]), generation, max(0.0, base.GRID_CAP - discharge[t]))
+
+        corridor = next_target_corridor(
+            pd.Timestamp(timestamps.iloc[t]),
+            pd.Timestamp(final_timestamp),
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            base.CMIN,
+            base.CMAX,
+            base.PS,
+            base.RTE,
+            annual_soc_settlement_hours,
+        )
+        target_active[t] = float(corridor.active)
+        target_lower[t] = corridor.lower_mwh
+        target_upper[t] = corridor.upper_mwh
+        target_value[t] = np.nan if corridor.target_mwh is None else corridor.target_mwh
+
+        if corridor.active and corridor.target_mwh is not None:
+            if storage[t] < corridor.target_mwh - 1e-7:
+                # Use only current wind to build the annual reserve. No future
+                # actual value and no grid energy are used.
+                discharge[t] = 0.0
+                charge[t] = min(
+                    base.PS,
+                    generation,
+                    base.CMAX - storage[t],
+                    corridor.target_mwh - storage[t],
+                )
+                mode[t] = 1.0
+                direct[t] = min(
+                    float(planned_direct[t]),
+                    max(0.0, generation - charge[t]),
+                    base.GRID_CAP,
+                )
+            else:
+                # Once the target is reached, protect it until the boundary.
+                protected_discharge = max(0.0, (storage[t] - corridor.target_mwh) * base.RTE)
+                discharge[t] = min(discharge[t], protected_discharge)
+                direct[t] = min(
+                    float(planned_direct[t]),
+                    max(0.0, generation - charge[t]),
+                    max(0.0, base.GRID_CAP - discharge[t]),
+                )
+
+        projected_soc = storage[t] + charge[t] - discharge[t] / base.RTE
+        if projected_soc < corridor.lower_mwh - 1e-7:
+            # Wind-only physical recourse: reserve enough current wind to meet
+            # the rising annual SoC floor. No grid energy is introduced.
+            discharge[t] = 0.0
+            required_charge = max(0.0, corridor.lower_mwh - storage[t])
+            feasible_charge = min(base.PS, generation, base.CMAX - storage[t])
+            if required_charge > feasible_charge + 1e-6:
+                raise RuntimeError(
+                    f"Annual SoC floor is physically infeasible at {timestamps.iloc[t]}: "
+                    f"need {required_charge:.6f} MWh charge, feasible {feasible_charge:.6f}."
+                )
+            charge[t] = max(charge[t], required_charge)
+            mode[t] = 1.0
+            direct[t] = min(
+                float(planned_direct[t]),
+                max(0.0, generation - charge[t]),
+                base.GRID_CAP,
+            )
+
+        projected_soc = storage[t] + charge[t] - discharge[t] / base.RTE
+        if projected_soc > corridor.upper_mwh + 1e-7:
+            # Discharge enough excess energy that the target remains physically
+            # reachable. Direct wind is reduced if grid headroom is required.
+            charge[t] = 0.0
+            required_discharge = max(0.0, (storage[t] - corridor.upper_mwh) * base.RTE)
+            feasible_discharge = min(
+                base.PS,
+                max(0.0, (storage[t] - base.CMIN) * base.RTE),
+                base.GRID_CAP,
+            )
+            if required_discharge > feasible_discharge + 1e-6:
+                raise RuntimeError(
+                    f"Annual SoC ceiling is physically infeasible at {timestamps.iloc[t]}: "
+                    f"need {required_discharge:.6f} MWh discharge, feasible {feasible_discharge:.6f}."
+                )
+            discharge[t] = max(discharge[t], required_discharge)
+            mode[t] = 0.0
+            direct[t] = min(
+                float(planned_direct[t]),
+                generation,
+                max(0.0, base.GRID_CAP - discharge[t]),
+            )
+
         delivered[t] = direct[t] + discharge[t]
         curtailment[t] = max(0.0, generation - direct[t] - charge[t])
         storage[t + 1] = float(np.clip(storage[t] + charge[t] - discharge[t] / base.RTE, base.CMIN, base.CMAX))
@@ -313,6 +554,10 @@ def execute_storage_block(
         "curtailment": curtailment,
         "storage": storage,
         "mode": mode,
+        "annual_soc_control_active": target_active,
+        "annual_soc_lower_bound_mwh": target_lower,
+        "annual_soc_upper_bound_mwh": target_upper,
+        "annual_soc_target_mwh": target_value,
     }
 
 
@@ -431,6 +676,10 @@ def run_single_forecast_recourse(
     execution_step_hours: int,
     direct_reserve_mw: float,
     apply_gate: bool,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    evaluation_end_exclusive: int,
+    annual_soc_settlement_hours: int,
 ) -> pd.DataFrame:
     generation = df["power_generated"].to_numpy(float)
     price = df["lmp"].to_numpy(float)
@@ -448,6 +697,10 @@ def run_single_forecast_recourse(
         if nowcast_first_hour:
             planned_wind[0] = generation[origin]
             planned_price[0] = price[origin]
+        # Annual equality is enforced during realized execution by the shared
+        # physical SoC corridor. It is deliberately not injected only when the
+        # boundary first enters a short forecast window, which can be infeasible.
+        soc_targets: dict[int, float] = {}
         action = solve_scenario_window(
             planned_wind.reshape(1, -1),
             planned_price.reshape(1, -1),
@@ -455,10 +708,12 @@ def run_single_forecast_recourse(
             current_soc,
             0.0,
             execute_len,
+            soc_targets=soc_targets,
         )
         action = apply_direct_reserve(action, direct_reserve_mw)
         used_gate = 0.0
-        if gate_margin is not None and apply_gate:
+        target_is_executed = any(index <= execute_len for index in soc_targets)
+        if gate_margin is not None and apply_gate and not target_is_executed:
             baseline_value = baseline_value_for_scenarios(
                 planned_wind.reshape(1, -1),
                 planned_price.reshape(1, -1),
@@ -470,7 +725,16 @@ def run_single_forecast_recourse(
                 action = baseline_block_action(generation[origin : origin + execute_len], current_soc, baseline_target_mw)
                 action["objective"] = baseline_value
                 used_gate = 1.0
-        realized = execute_storage_block(action, generation[origin : origin + execute_len], current_soc)
+        realized = execute_storage_block(
+            action,
+            generation[origin : origin + execute_len],
+            current_soc,
+            df["datetime"].iloc[origin : origin + execute_len].reset_index(drop=True),
+            pd.Timestamp(df["datetime"].iloc[evaluation_end_exclusive - 1]),
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            annual_soc_settlement_hours,
+        )
         rows.extend(make_label_rows(df, int(origin), HORIZON, planned_wind, planned_price, action, realized, execute_len, used_gate))
         current_soc = float(realized["storage"][-1])
         if (row_index + 1) % 500 == 0:
@@ -491,6 +755,10 @@ def run_scenario_controller(
     baseline_target_mw: float,
     execution_step_hours: int,
     direct_reserve_mw: float,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    evaluation_end_exclusive: int,
+    annual_soc_settlement_hours: int,
 ) -> pd.DataFrame:
     generation = df["power_generated"].to_numpy(float)
     current_soc = base.SOC0
@@ -517,6 +785,7 @@ def run_scenario_controller(
         if nowcast_first_hour:
             wind_scenarios[:, 0] = generation[origin]
             price_scenarios[:, 0] = df["lmp"].iloc[origin]
+        soc_targets: dict[int, float] = {}
         action = solve_scenario_window(
             wind_scenarios,
             price_scenarios,
@@ -524,10 +793,12 @@ def run_scenario_controller(
             current_soc,
             float(spec["risk_lambda"]),
             execute_len,
+            soc_targets=soc_targets,
         )
         action = apply_direct_reserve(action, direct_reserve_mw)
         used_gate = 0.0
-        if gate_margin is not None:
+        target_is_executed = any(index <= execute_len for index in soc_targets)
+        if gate_margin is not None and not target_is_executed:
             baseline_value = baseline_value_for_scenarios(
                 wind_scenarios,
                 price_scenarios,
@@ -539,7 +810,16 @@ def run_scenario_controller(
                 action = baseline_block_action(generation[origin : origin + execute_len], current_soc, baseline_target_mw)
                 action["objective"] = baseline_value
                 used_gate = 1.0
-        realized = execute_storage_block(action, generation[origin : origin + execute_len], current_soc)
+        realized = execute_storage_block(
+            action,
+            generation[origin : origin + execute_len],
+            current_soc,
+            df["datetime"].iloc[origin : origin + execute_len].reset_index(drop=True),
+            pd.Timestamp(df["datetime"].iloc[evaluation_end_exclusive - 1]),
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            annual_soc_settlement_hours,
+        )
         rows.extend(make_label_rows(df, int(origin), HORIZON, planned_wind_center, planned_price_center, action, realized, execute_len, used_gate))
         current_soc = float(realized["storage"][-1])
         if (row_index + 1) % 500 == 0:
@@ -589,16 +869,34 @@ def make_label_rows(
                 "solver_runtime_seconds": float(action["runtime"]),
                 "solver_status": int(action["status"]),
                 "used_baseload_gate": float(used_gate),
+                "annual_soc_control_active": float(realized["annual_soc_control_active"][k]),
+                "annual_soc_lower_bound_mwh": float(realized["annual_soc_lower_bound_mwh"][k]),
+                "annual_soc_upper_bound_mwh": float(realized["annual_soc_upper_bound_mwh"][k]),
+                "annual_soc_target_mwh": float(realized["annual_soc_target_mwh"][k]),
             }
         )
     return rows
 
 
-def summarize(labels: pd.DataFrame, candidate: str, wind_forecast: str, price_forecast: str) -> dict:
+def summarize(
+    labels: pd.DataFrame,
+    candidate: str,
+    wind_forecast: str,
+    price_forecast: str,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    annual_soc_settlement_hours: int,
+) -> dict:
     row = candidate_summary(labels, candidate, wind_forecast, price_forecast, HORIZON, False)
     actual_generation = labels["actual_generation_mw"].to_numpy(float)
     actual_price = labels["actual_price"].to_numpy(float)
-    constant_100mw = constant_output_100mw_delivery(actual_generation)
+    constant_100mw = constant_output_100mw_delivery(
+        actual_generation,
+        pd.to_datetime(labels["datetime"]),
+        annual_target_soc_mwh,
+        final_target_soc_mwh,
+        annual_soc_settlement_hours=annual_soc_settlement_hours,
+    )
     constant_revenue = base.revenue(constant_100mw, actual_price)
     dispatch_revenue = float(row["dispatch_revenue"])
     dispatch_cove = float(row["dispatch_cove_index"])
@@ -606,6 +904,7 @@ def summarize(labels: pd.DataFrame, candidate: str, wind_forecast: str, price_fo
     constant_cove = dispatch_cost / constant_revenue
     row["100mw_baseload_revenue"] = constant_revenue
     row["100mw_baseload_cove"] = constant_cove
+    row["annualized_dispatch_cost_usd"] = dispatch_cost
     row["revenue_gain_vs_100mw_baseload_pct"] = (dispatch_revenue / constant_revenue - 1.0) * 100.0
     row["cove_reduction_vs_100mw_baseload_pct"] = (constant_cove - dispatch_cove) / constant_cove * 100.0
     row["mean_solver_runtime_seconds"] = float(labels["solver_runtime_seconds"].mean())
@@ -615,19 +914,34 @@ def summarize(labels: pd.DataFrame, candidate: str, wind_forecast: str, price_fo
         row["gate_fraction"] = float(labels["used_baseload_gate"].mean())
     else:
         row["gate_fraction"] = 0.0
+    row.update(target_soc_qa(labels, annual_target_soc_mwh, final_target_soc_mwh))
+    row.update(physical_constraint_qa(labels))
+    if (
+        row["annual_soc_target_violation_count"]
+        or row["final_soc_target_violation_count"]
+        or row["qa_total_violation_count"]
+    ):
+        raise RuntimeError(f"{candidate} failed required SoC target QA: {row}")
     return row
 
 
-def constant_output_100mw_delivery(generation: np.ndarray, target_mw: float = 100.0) -> np.ndarray:
+def constant_output_100mw_delivery(
+    generation: np.ndarray,
+    timestamps: pd.Series,
+    annual_target_soc_mwh: float | None,
+    final_target_soc_mwh: float | None,
+    target_mw: float = 100.0,
+    annual_soc_settlement_hours: int = 720,
+) -> np.ndarray:
     storage = base.SOC0
     delivered = np.zeros(len(generation), dtype=float)
+    final_timestamp = pd.Timestamp(timestamps.iloc[-1])
     for idx, generation_value in enumerate(generation):
         wind = max(0.0, float(generation_value))
+        direct = charge = discharge = 0.0
         if wind >= target_mw:
             direct = min(target_mw, base.GRID_CAP)
             charge = min(wind - direct, base.PS, base.CMAX - storage)
-            delivered[idx] = direct
-            storage = min(base.CMAX, storage + charge)
         else:
             direct = min(wind, base.GRID_CAP)
             needed = max(0.0, target_mw - direct)
@@ -637,8 +951,46 @@ def constant_output_100mw_delivery(generation: np.ndarray, target_mw: float = 10
                 max(0.0, (storage - base.CMIN) * base.RTE),
                 max(0.0, base.GRID_CAP - direct),
             )
-            delivered[idx] = direct + discharge
-            storage = max(base.CMIN, storage - discharge / base.RTE)
+        corridor = next_target_corridor(
+            pd.Timestamp(timestamps.iloc[idx]),
+            final_timestamp,
+            annual_target_soc_mwh,
+            final_target_soc_mwh,
+            base.CMIN,
+            base.CMAX,
+            base.PS,
+            base.RTE,
+            annual_soc_settlement_hours,
+        )
+        if corridor.active and corridor.target_mwh is not None:
+            if storage < corridor.target_mwh - 1e-7:
+                discharge = 0.0
+                charge = min(base.PS, wind, base.CMAX - storage, corridor.target_mwh - storage)
+                direct = min(target_mw, max(0.0, wind - charge), base.GRID_CAP)
+            else:
+                discharge = min(discharge, max(0.0, (storage - corridor.target_mwh) * base.RTE))
+                direct = min(direct, wind, max(0.0, base.GRID_CAP - discharge))
+        projected = storage + charge - discharge / base.RTE
+        if projected < corridor.lower_mwh - 1e-7:
+            discharge = 0.0
+            required_charge = max(0.0, corridor.lower_mwh - storage)
+            feasible_charge = min(base.PS, wind, base.CMAX - storage)
+            if required_charge > feasible_charge + 1e-6:
+                raise RuntimeError(
+                    f"100 MW benchmark annual floor infeasible at {timestamps.iloc[idx]}: "
+                    f"SoC={storage:.6f}, wind={wind:.6f}, required={required_charge:.6f}, "
+                    f"feasible={feasible_charge:.6f}"
+                )
+            charge = max(charge, required_charge)
+            direct = min(target_mw, max(0.0, wind - charge), base.GRID_CAP)
+        projected = storage + charge - discharge / base.RTE
+        if projected > corridor.upper_mwh + 1e-7:
+            charge = 0.0
+            required_discharge = max(0.0, (storage - corridor.upper_mwh) * base.RTE)
+            discharge = max(discharge, required_discharge)
+            direct = min(direct, wind, max(0.0, base.GRID_CAP - discharge))
+        delivered[idx] = direct + discharge
+        storage = float(np.clip(storage + charge - discharge / base.RTE, base.CMIN, base.CMAX))
     return delivered
 
 
@@ -686,6 +1038,24 @@ def main() -> None:
         type=float,
         default=None,
         help="Initial SoC. If omitted, uses midpoint between Cmin and Cmax.",
+    )
+    parser.add_argument(
+        "--annual-target-soc-mwh",
+        type=float,
+        default=None,
+        help="Required realized SoC after every completed Dec. 31 23:00 hour.",
+    )
+    parser.add_argument(
+        "--final-target-soc-mwh",
+        type=float,
+        default=None,
+        help="Required realized SoC after the final evaluated hour.",
+    )
+    parser.add_argument(
+        "--annual-soc-settlement-hours",
+        type=int,
+        default=720,
+        help="Hours before each annual/final boundary used by the physical SoC corridor.",
     )
     parser.add_argument("--max-origins", type=int, default=None, help="Limit hourly origins for quick tests.")
     parser.add_argument("--direct-reserve-mw", type=float, default=75.0, help="Direct-wind reserve applied to planned direct export before realized execution.")
@@ -737,7 +1107,9 @@ def main() -> None:
     base.PS = float(args.storage_power_mw)
     base.DURATION_HOURS = float(args.storage_duration_h)
     base.RTE = float(args.rte)
-    base.SQRT_RTE = math.sqrt(base.RTE)
+    # The active SoC convention applies the full one-sided CAES efficiency on
+    # discharge: SoC(t+1) = SoC(t) + charge - discharge/RTE.
+    base.SQRT_RTE = base.RTE
     base.DOD = float(args.dod)
     base.CMAX = base.PS * base.DURATION_HOURS
     base.CMIN = base.CMAX * (1.0 - base.DOD)
@@ -784,6 +1156,10 @@ def main() -> None:
     origins = origins[origins + evaluation_cutoff_horizon <= len(df)]
     if args.max_origins is not None:
         print(f"Quick run limited to {args.max_origins} hourly origins.", flush=True)
+    selected_origins = origins if args.max_origins is None else origins[: args.max_origins]
+    if len(selected_origins) == 0:
+        raise ValueError("No evaluation origins remain after applying the cutoff.")
+    evaluation_end_exclusive = min(int(selected_origins[-1]) + execution_step_hours, len(df))
 
     print(f"Building {HORIZON}h hourly wind and price forecasts...", flush=True)
     wind_center, price_center, generation_models, price_models = build_forecasts(
@@ -793,34 +1169,47 @@ def main() -> None:
         int(args.train_origin_stride),
         forecast_model_max_horizon,
     )
-    baseline_target_mw = float(args.fallback_target_mw)
-    needed_quantiles = sorted(
-        {
-            q
-            for spec in SCENARIO_SPECS.values()
-            for q in (
-                spec["wind_quantiles"]
-                + spec["price_quantiles"]
-                + [event["quantile"] for event in spec.get("price_events", []) if "quantile" in event]
-                + [0.50]
-            )
-        }
-    )
-    print(
-        f"Estimating {args.calibration_mode} quantiles from "
-        f"{df['datetime'].iloc[residual_start]} to {df['datetime'].iloc[residual_end - 1]}: {needed_quantiles}",
-        flush=True,
-    )
-    quantile_lookup = residual_quantiles(
-        df,
-        residual_start,
-        residual_end,
+    shared_forecast_sha256 = forecast_fingerprint(
+        wind_center,
+        price_center,
         generation_models,
         price_models,
-        needed_quantiles,
-        method=quantile_method,
-        origin_stride=int(args.residual_origin_stride),
     )
+    print(f"Frozen causal-ridge forecast SHA256: {shared_forecast_sha256}", flush=True)
+    baseline_target_mw = float(args.fallback_target_mw)
+    requested_scenario_variants = [name for name in args.variants if name != "single_recourse"]
+    quantile_lookup: dict[str, dict[float, np.ndarray]] = {}
+    if requested_scenario_variants:
+        needed_quantiles = sorted(
+            {
+                q
+                for name in requested_scenario_variants
+                for spec in [SCENARIO_SPECS[name]]
+                for q in (
+                    spec["wind_quantiles"]
+                    + spec["price_quantiles"]
+                    + [event["quantile"] for event in spec.get("price_events", []) if "quantile" in event]
+                    + [0.50]
+                )
+            }
+        )
+        print(
+            f"Estimating {args.calibration_mode} quantiles from "
+            f"{df['datetime'].iloc[residual_start]} to {df['datetime'].iloc[residual_end - 1]}: {needed_quantiles}",
+            flush=True,
+        )
+        quantile_lookup = residual_quantiles(
+            df,
+            residual_start,
+            residual_end,
+            generation_models,
+            price_models,
+            needed_quantiles,
+            method=quantile_method,
+            origin_stride=int(args.residual_origin_stride),
+        )
+    else:
+        print("Single-forecast run: scenario residual quantiles are not needed; skipping calibration.", flush=True)
 
     summary_rows = []
 
@@ -838,6 +1227,10 @@ def main() -> None:
             execution_step_hours,
             float(args.direct_reserve_mw),
             bool(args.gate_single_forecast),
+            args.annual_target_soc_mwh,
+            args.final_target_soc_mwh,
+            evaluation_end_exclusive,
+            int(args.annual_soc_settlement_hours),
         )
         suffix = "_nowcast" if args.nowcast_first_hour else ""
         suffix += "_gated" if args.gate_margin is not None and args.gate_single_forecast else ""
@@ -848,6 +1241,9 @@ def main() -> None:
                 f"single_forecast_recourse{suffix}",
                 "current measured wind + ridge future" if args.nowcast_first_hour else "causal ridge",
                 "current measured price + ridge future" if args.nowcast_first_hour else "causal ridge price",
+                args.annual_target_soc_mwh,
+                args.final_target_soc_mwh,
+                int(args.annual_soc_settlement_hours),
             )
         )
 
@@ -870,6 +1266,10 @@ def main() -> None:
             baseline_target_mw,
             execution_step_hours,
             float(args.direct_reserve_mw),
+            args.annual_target_soc_mwh,
+            args.final_target_soc_mwh,
+            evaluation_end_exclusive,
+            int(args.annual_soc_settlement_hours),
         )
         suffix = "_nowcast" if args.nowcast_first_hour else ""
         suffix += "_gated" if args.gate_margin is not None else ""
@@ -881,10 +1281,14 @@ def main() -> None:
                 f"{variant}{suffix}",
                 f"{'current measured wind + ' if args.nowcast_first_hour else ''}causal ridge residual scenarios {spec['wind_quantiles']}",
                 f"{'current measured price + ' if args.nowcast_first_hour else ''}causal ridge price residual scenarios {spec['price_quantiles']}",
+                args.annual_target_soc_mwh,
+                args.final_target_soc_mwh,
+                int(args.annual_soc_settlement_hours),
             )
         )
 
     summary = pd.DataFrame(summary_rows).sort_values("dispatch_revenue", ascending=False)
+    summary["causal_ridge_forecast_sha256"] = shared_forecast_sha256
     summary.to_csv(OUT / "uncertainty_aware_summary.csv", index=False)
     make_figures(summary)
 
@@ -917,6 +1321,7 @@ def main() -> None:
             }
             for name, spec in SCENARIO_SPECS.items()
         },
+        "causal_ridge_forecast_sha256": shared_forecast_sha256,
         "storage_constraints": {
             "power_mw": base.PS,
             "duration_hours": base.DURATION_HOURS,
@@ -925,6 +1330,9 @@ def main() -> None:
             "soc0_mwh": base.SOC0,
             "rte": base.RTE,
             "grid_cap_mw": base.GRID_CAP,
+            "annual_target_soc_mwh": args.annual_target_soc_mwh,
+            "final_target_soc_mwh": args.final_target_soc_mwh,
+            "annual_soc_settlement_hours": int(args.annual_soc_settlement_hours),
         },
     }
     (OUT / "experiment_metadata.json").write_text(json.dumps(metadata, indent=2))
